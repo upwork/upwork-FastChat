@@ -28,7 +28,9 @@ def get_api_provider_stream_iter(
     if api_key and api_key.startswith("env:"):
         api_key = os.environ.get(api_key.removeprefix("env:").strip())
     if model_api_dict["api_type"] == "openai":
-        if model_api_dict.get("vision-arena"):
+        if model_api_dict.get("use_autocomplete", False):
+            prompt = conv.get_prompt()
+        elif model_api_dict.get("vision-arena"):
             prompt = conv.to_openai_vision_api_messages()
         else:
             prompt = conv.to_openai_api_messages()
@@ -210,17 +212,22 @@ def openai_api_stream_iter(
         )
 
     # Make requests for logging
-    text_messages = []
-    for message in messages:
-        if type(message["content"]) == str:  # text-only model
-            text_messages.append(message)
-        else:  # vision model
-            filtered_content_list = [
-                content for content in message["content"] if content["type"] == "text"
-            ]
-            text_messages.append(
-                {"role": message["role"], "content": filtered_content_list}
-            )
+    if isinstance(messages, str):
+        text_messages = messages
+    else:
+        text_messages = []
+        for message in messages:
+            if type(message["content"]) == str:  # text-only model
+                text_messages.append(message)
+            else:  # vision model
+                filtered_content_list = [
+                    content
+                    for content in message["content"]
+                    if content["type"] == "text"
+                ]
+                text_messages.append(
+                    {"role": message["role"], "content": filtered_content_list}
+                )
 
     gen_params = {
         "model": model_name,
@@ -231,22 +238,41 @@ def openai_api_stream_iter(
     }
     logger.info(f"==== request ====\n{gen_params}")
 
-    res = client.chat.completions.create(
-        model=model_name,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_new_tokens,
-        stream=True,
-    )
-    text = ""
-    for chunk in res:
-        if len(chunk.choices) > 0:
-            text += chunk.choices[0].delta.content or ""
-            data = {
-                "text": text,
-                "error_code": 0,
-            }
-            yield data
+    if isinstance(messages, str):
+        res = client.completions.create(
+            model=model_name,
+            prompt=messages,
+            temperature=temperature,
+            max_tokens=max_new_tokens,
+            stream=True,
+        )
+        text = ""
+        for chunk in res:
+            if len(chunk.choices) > 0:
+                text += chunk.choices[0].text or ""
+                data = {
+                    "text": text,
+                    "error_code": 0,
+                }
+                yield data
+
+    else:
+        res = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_new_tokens,
+            stream=True,
+        )
+        text = ""
+        for chunk in res:
+            if len(chunk.choices) > 0:
+                text += chunk.choices[0].delta.content or ""
+                data = {
+                    "text": text,
+                    "error_code": 0,
+                }
+                yield data
 
 
 def upload_openai_file_to_gcs(file_id):
