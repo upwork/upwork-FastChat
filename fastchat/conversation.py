@@ -391,7 +391,7 @@ class Conversation:
         """Convert the conversation to gradio chatbot format."""
         ret = []
         for i, (role, msg) in enumerate(self.messages[self.offset :]):
-            if i % 2 == 0:
+            if role == self.roles[0]:
                 if type(msg) is tuple:
                     msg, image = msg
                     img_b64_str = image[0]  # Only one image on gradio at one time
@@ -405,7 +405,10 @@ class Conversation:
 
                 ret.append([msg, None])
             else:
-                ret[-1][-1] = msg
+                if ret:
+                    ret[-1][-1] = msg
+                else:
+                    ret.append([None, msg])
         return ret
 
     def to_openai_image_format(self, image_urls):

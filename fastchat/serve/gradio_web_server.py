@@ -16,6 +16,9 @@ import fsspec
 import gradio as gr
 import requests
 
+from fastchat.conversation import (
+    get_conv_template,
+)
 from fastchat.constants import (
     LOGDIR,
     WORKER_API_TIMEOUT,
@@ -100,7 +103,19 @@ api_endpoint_info = {}
 
 class State:
     def __init__(self, model_name, is_vision=False):
-        self.conv = get_conversation_template(model_name)
+        model_api_dict = api_endpoint_info.get(model_name, None)
+        if model_api_dict is not None and "conv_template" in model_api_dict:
+            self.conv = get_conv_template(model_api_dict["conv_template"])
+            if "system_template" in model_api_dict:
+                self.conv.system_template = model_api_dict["system_template"]
+            if "system_message" in model_api_dict:
+                self.conv.set_system_message(model_api_dict["system_message"])
+            if "assistant_first_message" in model_api_dict:
+                self.conv.append_message(
+                    self.conv.roles[1], model_api_dict["assistant_first_message"]
+                )
+        else:
+            self.conv = get_conversation_template(model_name)
         self.conv_id = uuid.uuid4().hex
         self.skip_next = False
         self.model_name = model_name
@@ -113,15 +128,12 @@ class State:
         self.regen_support = True
         if "browsing" in model_name:
             self.regen_support = False
-        self.init_system_prompt(self.conv)
 
-    def init_system_prompt(self, conv):
-        system_prompt = conv.get_system_message()
-        if len(system_prompt) == 0:
-            return
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-        system_prompt = system_prompt.replace("{{currentDateTime}}", current_date)
-        conv.set_system_message(system_prompt)
+        system_prompt = self.conv.get_system_message()
+        if len(system_prompt) > 0:
+            current_date = datetime.datetime.now().strftime("%Y-%m-%d")
+            system_prompt = system_prompt.replace("{{currentDateTime}}", current_date)
+            self.conv.set_system_message(system_prompt)
 
     def to_gradio_chatbot(self):
         return self.conv.to_gradio_chatbot()
@@ -324,16 +336,27 @@ def _prepare_text_with_image(state, text, images, csam_flag):
     return text
 
 
-def add_text(state, model_selector, text, image, request: gr.Request):
+def init_chat(state, model_selector, system_message):
+    state = State(model_selector)
+    if state.conv.get_system_message():
+        system_message = state.conv.get_system_message()
+    return (state, state.to_gradio_chatbot(), system_message, "", None) + (
+        disable_btn,
+    ) * 5
+
+
+def add_text(state, model_selector, system_message, text, image, request: gr.Request):
     ip = get_ip(request)
     logger.info(f"add_text. ip: {ip}. len: {len(text)}")
 
     if state is None:
-        state = State(model_selector)
+        state, _, system_message, *_ = init_chat(state, model_selector, system_message)
 
     if len(text) <= 0:
         state.skip_next = True
-        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 5
+        return (state, state.to_gradio_chatbot(), system_message, "", None) + (
+            no_change_btn,
+        ) * 5
 
     all_conv_text = state.conv.get_prompt()
     all_conv_text = all_conv_text[-2000:] + "\nuser: " + text
@@ -347,15 +370,21 @@ def add_text(state, model_selector, text, image, request: gr.Request):
     if (len(state.conv.messages) - state.conv.offset) // 2 >= CONVERSATION_TURN_LIMIT:
         logger.info(f"conversation turn limit. ip: {ip}. text: {text}")
         state.skip_next = True
-        return (state, state.to_gradio_chatbot(), CONVERSATION_LIMIT_MSG, None) + (
-            no_change_btn,
-        ) * 5
+        return (
+            state,
+            state.to_gradio_chatbot(),
+            system_message,
+            CONVERSATION_LIMIT_MSG,
+            None,
+        ) + (no_change_btn,) * 5
 
     text = text[:INPUT_CHAR_LEN_LIMIT]  # Hard cut-off
     text = _prepare_text_with_image(state, text, image, csam_flag=False)
     state.conv.append_message(state.conv.roles[0], text)
     state.conv.append_message(state.conv.roles[1], None)
-    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
+    return (state, state.to_gradio_chatbot(), system_message, "", None) + (
+        disable_btn,
+    ) * 5
 
 
 def model_worker_stream_iter(
@@ -453,9 +482,7 @@ def bot_response(
             return
 
     conv, model_name = state.conv, state.model_name
-    model_api_dict = (
-        api_endpoint_info[model_name] if model_name in api_endpoint_info else None
-    )
+    model_api_dict = api_endpoint_info.get(model_name, None)
     images = conv.get_images()
 
     if model_api_dict is None:
@@ -716,29 +743,6 @@ a:hover {
 """
 
 
-def get_model_description_md(models):
-    model_description_md = """
-| | | |
-| ---- | ---- | ---- |
-"""
-    ct = 0
-    visited = set()
-    for i, name in enumerate(models):
-        minfo = get_model_info(name)
-        if minfo.simple_name in visited:
-            continue
-        visited.add(minfo.simple_name)
-        one_model_md = f"[{minfo.simple_name}]({minfo.link}): {minfo.description}"
-
-        if ct % 3 == 0:
-            model_description_md += "|"
-        model_description_md += f" {one_model_md} |"
-        if ct % 3 == 2:
-            model_description_md += "\n"
-        ct += 1
-    return model_description_md
-
-
 def build_about():
     about_markdown = """
 # About Us
@@ -808,13 +812,6 @@ def build_single_model_ui(models, add_promotion_links=False):
                 show_label=False,
                 container=False,
             )
-        with gr.Row():
-            with gr.Accordion(
-                f"🔍 Expand to see the descriptions of {len(models)} models",
-                open=False,
-            ):
-                model_description_md = get_model_description_md(models)
-                gr.Markdown(model_description_md, elem_id="model_description_markdown")
 
         chatbot = gr.Chatbot(
             elem_id="chatbot",
@@ -845,7 +842,7 @@ def build_single_model_ui(models, add_promotion_links=False):
         temperature = gr.Slider(
             minimum=0.0,
             maximum=1.0,
-            value=0.7,
+            value=0.0,
             step=0.1,
             interactive=True,
             label="Temperature",
@@ -896,18 +893,23 @@ def build_single_model_ui(models, add_promotion_links=False):
         [state, chatbot, system_message] + btn_list,
     )
     clear_btn.click(clear_history, None, [state, chatbot, textbox, imagebox] + btn_list)
-    system_message.change(
+
+    system_message.blur(
         clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
     )
 
     model_selector.change(
         clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
+    ).then(
+        init_chat,
+        [state, model_selector, system_message],
+        [state, chatbot, system_message, textbox, imagebox] + btn_list,
     )
 
     textbox.submit(
         add_text,
-        [state, model_selector, textbox, imagebox],
-        [state, chatbot, textbox, imagebox] + btn_list,
+        [state, model_selector, system_message, textbox, imagebox],
+        [state, chatbot, system_message, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
         [state, system_message, temperature, top_p, max_output_tokens],
@@ -915,8 +917,8 @@ def build_single_model_ui(models, add_promotion_links=False):
     )
     send_btn.click(
         add_text,
-        [state, model_selector, textbox, imagebox],
-        [state, chatbot, textbox, imagebox] + btn_list,
+        [state, model_selector, system_message, textbox, imagebox],
+        [state, chatbot, system_message, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
         [state, system_message, temperature, top_p, max_output_tokens],
