@@ -729,7 +729,7 @@ block_css = """
 
 .app {
   max-width: 100% !important;
-  padding: 20px !important;
+  padding: 20px !important;               
 }
 
 a {
@@ -858,7 +858,7 @@ def build_single_model_ui(models, add_promotion_links=False):
         max_output_tokens = gr.Slider(
             minimum=16,
             maximum=2048,
-            value=512,
+            value=1024,
             step=64,
             interactive=True,
             label="Max output tokens",
