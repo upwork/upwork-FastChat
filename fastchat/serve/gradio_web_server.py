@@ -729,7 +729,7 @@ block_css = """
 
 .app {
   max-width: 100% !important;
-  padding: 20px !important;               
+  padding: 20px !important;
 }
 
 a {
