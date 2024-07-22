@@ -405,10 +405,7 @@ class Conversation:
 
                 ret.append([msg, None])
             else:
-                if ret:
-                    ret[-1][-1] = msg
-                else:
-                    ret.append([None, msg])
+                ret.append([None, msg])
         return ret
 
     def to_openai_image_format(self, image_urls):
@@ -1533,7 +1530,7 @@ register_conv_template(
     Conversation(
         name="llama-3",
         system_template="<|start_header_id|>system<|end_header_id|>\n\n{system_message}<|eot_id|>",
-        roles=("user", "assistant"),
+        roles=("user", "assistant", "thoughts"),
         sep_style=SeparatorStyle.LLAMA3,
         sep="",
         stop_str="<|eot_id|>",
