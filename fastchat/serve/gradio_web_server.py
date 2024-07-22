@@ -281,21 +281,38 @@ def flag_last_response(state, model_selector, request: gr.Request):
     return ("",) + (disable_btn,) * 3
 
 
+def undo(state, request: gr.Request):
+    ip = get_ip(request)
+    logger.info(f"undo. ip: {ip}")
+    if not state.regen_support:
+        state.skip_next = True
+        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 6
+    # Remove all assistant responses before the last user message.
+    while state.conv.messages and state.conv.messages[-1][0] != state.conv.roles[0]:
+        state.conv.messages.pop()
+    # Remove the last user message too.
+    if state.conv.messages:
+        state.conv.messages.pop()
+    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 6
+
+
 def regenerate(state, request: gr.Request):
     ip = get_ip(request)
     logger.info(f"regenerate. ip: {ip}")
     if not state.regen_support:
         state.skip_next = True
-        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 5
-    state.conv.update_last_message(None)
-    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 5
+        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 6
+    # Remove all assistant responses before the last user message.
+    while state.conv.messages and state.conv.messages[-1][0] != state.conv.roles[0]:
+        state.conv.messages.pop()
+    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 6
 
 
 def clear_history(request: gr.Request):
     ip = get_ip(request)
     logger.info(f"clear_history. ip: {ip}")
     state = None
-    return (state, [], "", None) + (disable_btn,) * 5
+    return (state, [], "", None) + (disable_btn,) * 6
 
 
 def get_ip(request: gr.Request):
@@ -342,7 +359,7 @@ def init_chat(state, model_selector, system_message):
         system_message = state.conv.get_system_message()
     return (state, state.to_gradio_chatbot(), system_message, "", None) + (
         disable_btn,
-    ) * 5
+    ) * 6
 
 
 def add_text(state, model_selector, system_message, text, image, request: gr.Request):
@@ -356,7 +373,7 @@ def add_text(state, model_selector, system_message, text, image, request: gr.Req
         state.skip_next = True
         return (state, state.to_gradio_chatbot(), system_message, "", None) + (
             no_change_btn,
-        ) * 5
+        ) * 6
 
     all_conv_text = state.conv.get_prompt()
     all_conv_text = all_conv_text[-2000:] + "\nuser: " + text
@@ -376,15 +393,14 @@ def add_text(state, model_selector, system_message, text, image, request: gr.Req
             system_message,
             CONVERSATION_LIMIT_MSG,
             None,
-        ) + (no_change_btn,) * 5
+        ) + (no_change_btn,) * 6
 
     text = text[:INPUT_CHAR_LEN_LIMIT]  # Hard cut-off
     text = _prepare_text_with_image(state, text, image, csam_flag=False)
     state.conv.append_message(state.conv.roles[0], text)
-    state.conv.append_message(state.conv.roles[1], None)
     return (state, state.to_gradio_chatbot(), system_message, "", None) + (
         disable_btn,
-    ) * 5
+    ) * 6
 
 
 def model_worker_stream_iter(
@@ -443,45 +459,19 @@ def is_limit_reached(model_name, ip):
         return None
 
 
-def bot_response(
+def generate_turn(
     state,
-    system_message,
+    role,
     temperature,
     top_p,
     max_new_tokens,
     request: gr.Request,
-    apply_rate_limit=True,
     use_recommended_config=False,
 ):
-    ip = get_ip(request)
-    logger.info(f"bot_response. ip: {ip}")
     start_tstamp = time.time()
-    temperature = float(temperature)
-    top_p = float(top_p)
-    max_new_tokens = int(max_new_tokens)
-
-    if system_message:
-        state.conv.set_system_message(system_message)
-    system_message = state.conv.get_system_message()
-
-    if state.skip_next:
-        # This generate call is skipped due to invalid inputs
-        state.skip_next = False
-        yield (state, state.to_gradio_chatbot(), system_message) + (no_change_btn,) * 5
-        return
-
-    if apply_rate_limit:
-        ret = is_limit_reached(state.model_name, ip)
-        if ret is not None and ret["is_limit_reached"]:
-            error_msg = RATE_LIMIT_MSG + "\n\n" + ret["reason"]
-            logger.info(f"rate limit reached. ip: {ip}. error_msg: {ret['reason']}")
-            state.conv.update_last_message(error_msg)
-            yield (state, state.to_gradio_chatbot(), system_message) + (
-                no_change_btn,
-            ) * 5
-            return
-
     conv, model_name = state.conv, state.model_name
+    system_message = conv.get_system_message()
+    conv.append_message(role, None)
     model_api_dict = api_endpoint_info.get(model_name, None)
     images = conv.get_images()
 
@@ -503,6 +493,7 @@ def bot_response(
                 disable_btn,
                 disable_btn,
                 disable_btn,
+                enable_btn,
                 enable_btn,
                 enable_btn,
             )
@@ -552,7 +543,7 @@ def bot_response(
 
     # conv.update_last_message("▌")
     conv.update_last_message(html_code)
-    yield (state, state.to_gradio_chatbot(), system_message) + (disable_btn,) * 5
+    yield (state, state.to_gradio_chatbot(), system_message) + (disable_btn,) * 6
 
     try:
         data = {"text": ""}
@@ -563,7 +554,7 @@ def bot_response(
                 conv.update_last_message(output + html_code)
                 yield (state, state.to_gradio_chatbot(), system_message) + (
                     disable_btn,
-                ) * 5
+                ) * 6
             else:
                 output = data["text"] + f"\n\n(error_code: {data['error_code']})"
                 conv.update_last_message(output)
@@ -573,11 +564,12 @@ def bot_response(
                     disable_btn,
                     enable_btn,
                     enable_btn,
+                    enable_btn,
                 )
                 return
         output = data["text"].strip()
         conv.update_last_message(output)
-        yield (state, state.to_gradio_chatbot(), system_message) + (enable_btn,) * 5
+        yield (state, state.to_gradio_chatbot(), system_message) + (enable_btn,) * 6
     except requests.exceptions.RequestException as e:
         conv.update_last_message(
             f"{SERVER_ERROR_MSG}\n\n"
@@ -587,6 +579,7 @@ def bot_response(
             disable_btn,
             disable_btn,
             disable_btn,
+            enable_btn,
             enable_btn,
             enable_btn,
         )
@@ -600,6 +593,7 @@ def bot_response(
             disable_btn,
             disable_btn,
             disable_btn,
+            enable_btn,
             enable_btn,
             enable_btn,
         )
@@ -631,6 +625,67 @@ def bot_response(
         }
         fout.write(json.dumps(data) + "\n")
     get_remote_logger().log(data)
+
+
+def bot_response(
+    state,
+    system_message,
+    temperature,
+    top_p,
+    max_new_tokens,
+    request: gr.Request,
+    apply_rate_limit=True,
+    use_recommended_config=False,
+):
+    ip = get_ip(request)
+    logger.info(f"bot_response. ip: {ip}")
+    temperature = float(temperature)
+    top_p = float(top_p)
+    max_new_tokens = int(max_new_tokens)
+
+    if system_message:
+        state.conv.set_system_message(system_message)
+    system_message = state.conv.get_system_message()
+
+    if state.skip_next:
+        # This generate call is skipped due to invalid inputs
+        state.skip_next = False
+        yield (state, state.to_gradio_chatbot(), system_message) + (no_change_btn,) * 6
+        return
+
+    if apply_rate_limit:
+        ret = is_limit_reached(state.model_name, ip)
+        if ret is not None and ret["is_limit_reached"]:
+            error_msg = RATE_LIMIT_MSG + "\n\n" + ret["reason"]
+            logger.info(f"rate limit reached. ip: {ip}. error_msg: {ret['reason']}")
+            state.conv.update_last_message(error_msg)
+            yield (state, state.to_gradio_chatbot(), system_message) + (
+                no_change_btn,
+            ) * 6
+            return
+
+    model_api_dict = api_endpoint_info.get(state.model_name, None)
+    if model_api_dict is not None and model_api_dict.get("has_thoughts", False):
+        # Generate thoughts turn.
+        yield from generate_turn(
+            state,
+            role=state.conv.roles[2],
+            temperature=temperature,
+            top_p=top_p,
+            max_new_tokens=max_new_tokens,
+            request=request,
+            use_recommended_config=use_recommended_config,
+        )
+
+    yield from generate_turn(
+        state,
+        role=state.conv.roles[1],
+        temperature=temperature,
+        top_p=top_p,
+        max_new_tokens=max_new_tokens,
+        request=request,
+        use_recommended_config=use_recommended_config,
+    )
 
 
 block_css = """
@@ -832,6 +887,7 @@ def build_single_model_ui(models, add_promotion_links=False):
         downvote_btn = gr.Button(value="👎  Downvote", interactive=False)
         flag_btn = gr.Button(value="⚠️  Flag", interactive=False)
         regenerate_btn = gr.Button(value="🔄  Regenerate", interactive=False)
+        undo_btn = gr.Button(value="⟲  Undo", interactive=False)
         clear_btn = gr.Button(value="🗑️  Clear history", interactive=False)
 
     with gr.Accordion("Parameters", open=False) as parameter_row:
@@ -869,7 +925,7 @@ def build_single_model_ui(models, add_promotion_links=False):
 
     # Register listeners
     imagebox = gr.State(None)
-    btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, clear_btn]
+    btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, undo_btn, clear_btn]
     upvote_btn.click(
         upvote_last_response,
         [state, model_selector],
@@ -885,6 +941,7 @@ def build_single_model_ui(models, add_promotion_links=False):
         [state, model_selector],
         [textbox, upvote_btn, downvote_btn, flag_btn],
     )
+    undo_btn.click(undo, state, [state, chatbot, textbox, imagebox] + btn_list)
     regenerate_btn.click(
         regenerate, state, [state, chatbot, textbox, imagebox] + btn_list
     ).then(
