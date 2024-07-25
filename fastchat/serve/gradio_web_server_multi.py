@@ -145,7 +145,7 @@ window.__gradio_mode__ = "app";
 
                 with gr.Tab("💬 Direct Chat", id=2):
                     single_model_list = build_single_model_ui(
-                        models, add_promotion_links=True
+                        demo, models, add_promotion_links=True
                     )
 
             demo_tabs = (

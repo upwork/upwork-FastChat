@@ -596,7 +596,7 @@ Find out who is the 🥇LLM Champion!
         max_output_tokens = gr.Slider(
             minimum=16,
             maximum=2048,
-            value=1024,
+            value=256,
             step=64,
             interactive=True,
             label="Max output tokens",
