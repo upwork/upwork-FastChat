@@ -104,16 +104,12 @@ api_endpoint_info = {}
 class State:
     def __init__(self, model_name, is_vision=False):
         model_api_dict = api_endpoint_info.get(model_name, None)
-        if model_api_dict is not None and "conv_template" in model_api_dict:
+        if model_api_dict and "conv_template" in model_api_dict:
             self.conv = get_conv_template(model_api_dict["conv_template"])
             if "system_template" in model_api_dict:
                 self.conv.system_template = model_api_dict["system_template"]
             if "system_message" in model_api_dict:
                 self.conv.set_system_message(model_api_dict["system_message"])
-            if "assistant_first_message" in model_api_dict:
-                self.conv.append_message(
-                    self.conv.roles[1], model_api_dict["assistant_first_message"]
-                )
         else:
             self.conv = get_conversation_template(model_name)
         self.conv_id = uuid.uuid4().hex
@@ -136,7 +132,12 @@ class State:
             self.conv.set_system_message(system_prompt)
 
     def to_gradio_chatbot(self):
-        return self.conv.to_gradio_chatbot()
+        history = self.conv.to_gradio_chatbot()
+
+        model_api_dict = api_endpoint_info.get(self.model_name, None)
+        if model_api_dict and "assistant_first_message" in model_api_dict:
+            history = [(None, model_api_dict["assistant_first_message"])] + history
+        return history
 
     def dict(self):
         base = self.conv.dict()
@@ -205,7 +206,7 @@ def get_model_list(controller_url, register_api_endpoint_file, vision_arena):
         if mdl not in api_endpoint_info:
             continue
         mdl_dict = api_endpoint_info[mdl]
-        if mdl_dict["anony_only"]:
+        if mdl_dict.get("anony_only", False):
             visible_models.remove(mdl)
 
     # Sort models and add descriptions
@@ -454,8 +455,10 @@ def is_limit_reached(model_name, ip):
         )
         obj = ret.json()
         return obj
+    except requests.exceptions.ConnectionError:
+        return None
     except Exception as e:
-        logger.info(f"monitor error: {e}")
+        logger.info(f"monitor error: {type(e)} {e}")
         return None
 
 
@@ -837,7 +840,7 @@ We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https
     gr.Markdown(about_markdown, elem_id="about_markdown")
 
 
-def build_single_model_ui(models, add_promotion_links=False):
+def build_single_model_ui(demo, models, add_promotion_links=False):
     promotion = (
         """
 - | [GitHub](https://github.com/lm-sys/FastChat) | [Dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md) | [Twitter](https://twitter.com/lmsysorg) | [Discord](https://discord.gg/HSWAKCrnFx) |
@@ -914,7 +917,7 @@ def build_single_model_ui(models, add_promotion_links=False):
         max_output_tokens = gr.Slider(
             minimum=16,
             maximum=2048,
-            value=1024,
+            value=256,
             step=64,
             interactive=True,
             label="Max output tokens",
@@ -926,6 +929,13 @@ def build_single_model_ui(models, add_promotion_links=False):
     # Register listeners
     imagebox = gr.State(None)
     btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, undo_btn, clear_btn]
+
+    demo.load(
+        init_chat,
+        [state, model_selector, system_message],
+        [state, chatbot, system_message, textbox, imagebox] + btn_list,
+    )
+
     upvote_btn.click(
         upvote_last_response,
         [state, model_selector],
@@ -953,6 +963,10 @@ def build_single_model_ui(models, add_promotion_links=False):
 
     system_message.blur(
         clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
+    ).then(
+        init_chat,
+        [state, model_selector, system_message],
+        [state, chatbot, system_message, textbox, imagebox] + btn_list,
     )
 
     model_selector.change(
@@ -993,7 +1007,7 @@ def build_demo(models):
     ) as demo:
         url_params = gr.JSON(visible=False)
 
-        state, model_selector = build_single_model_ui(models)
+        state, model_selector = build_single_model_ui(demo, models)
 
         if args.model_list_mode not in ["once", "reload"]:
             raise ValueError(f"Unknown model list mode: {args.model_list_mode}")

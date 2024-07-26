@@ -24,7 +24,7 @@ def get_api_provider_stream_iter(
     max_new_tokens,
     state,
 ):
-    api_key = model_api_dict.get("api_key")
+    api_key = model_api_dict.get("api_key", None)
     if api_key and api_key.startswith("env:"):
         api_key = os.environ.get(api_key.removeprefix("env:").strip())
     if model_api_dict["api_type"] == "openai":
@@ -40,7 +40,7 @@ def get_api_provider_stream_iter(
             temperature,
             top_p,
             max_new_tokens,
-            api_base=model_api_dict["api_base"],
+            api_base=model_api_dict.get("api_base", None),
             api_key=api_key,
         )
     elif model_api_dict["api_type"] == "openai_assistant":
@@ -196,7 +196,9 @@ def openai_api_stream_iter(
 ):
     import openai
 
-    api_key = api_key or os.environ["OPENAI_API_KEY"]
+    api_key = api_key or os.environ.get("OPENAI_API_KEY", None)
+    if not api_key:
+        api_key = "none"
 
     if "azure" in model_name:
         client = openai.AzureOpenAI(
@@ -205,6 +207,7 @@ def openai_api_stream_iter(
             api_key=api_key,
         )
     else:
+        print(f"Creating OpenAI client with api_base {api_base}")
         client = openai.OpenAI(
             base_url=api_base or "https://api.openai.com/v1",
             api_key=api_key,
@@ -299,7 +302,7 @@ def openai_assistant_api_stream_iter(
     import openai
     import base64
 
-    api_key = api_key or os.environ["OPENAI_API_KEY"]
+    api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
     client = openai.OpenAI(base_url="https://api.openai.com/v1", api_key=api_key)
 
     if state.oai_thread_id is None:
