@@ -226,8 +226,7 @@ def load_demo_single(models, url_params):
             selected_model = model
 
     dropdown_update = gr.Dropdown(choices=models, value=selected_model, visible=True)
-    state = None
-    return state, dropdown_update
+    return dropdown_update
 
 
 def load_demo(url_params, request: gr.Request):
@@ -354,7 +353,7 @@ def _prepare_text_with_image(state, text, images, csam_flag):
     return text
 
 
-def init_chat(state, model_selector, system_message):
+def init_chat(model_selector):
     state = State(model_selector)
     if state.conv.get_system_message():
         system_message = state.conv.get_system_message()
@@ -363,18 +362,23 @@ def init_chat(state, model_selector, system_message):
     ) * 6
 
 
-def add_text(state, model_selector, system_message, text, image, request: gr.Request):
+def set_system_message(state, model_selector, system_message):
+    if system_message != state.conv.get_system_message():
+        state = State(model_selector)
+        btn_state = disable_btn
+    else:
+        btn_state = no_change_btn
+    state.conv.set_system_message(system_message)
+    return (state, state.to_gradio_chatbot(), "", None) + (btn_state,) * 6
+
+
+def add_text(state, model_selector, text, image, request: gr.Request):
     ip = get_ip(request)
     logger.info(f"add_text. ip: {ip}. len: {len(text)}")
 
-    if state is None:
-        state, _, system_message, *_ = init_chat(state, model_selector, system_message)
-
     if len(text) <= 0:
         state.skip_next = True
-        return (state, state.to_gradio_chatbot(), system_message, "", None) + (
-            no_change_btn,
-        ) * 6
+        return (state, state.to_gradio_chatbot(), "", None) + (no_change_btn,) * 6
 
     all_conv_text = state.conv.get_prompt()
     all_conv_text = all_conv_text[-2000:] + "\nuser: " + text
@@ -391,7 +395,6 @@ def add_text(state, model_selector, system_message, text, image, request: gr.Req
         return (
             state,
             state.to_gradio_chatbot(),
-            system_message,
             CONVERSATION_LIMIT_MSG,
             None,
         ) + (no_change_btn,) * 6
@@ -399,9 +402,7 @@ def add_text(state, model_selector, system_message, text, image, request: gr.Req
     text = text[:INPUT_CHAR_LEN_LIMIT]  # Hard cut-off
     text = _prepare_text_with_image(state, text, image, csam_flag=False)
     state.conv.append_message(state.conv.roles[0], text)
-    return (state, state.to_gradio_chatbot(), system_message, "", None) + (
-        disable_btn,
-    ) * 6
+    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 6
 
 
 def model_worker_stream_iter(
@@ -473,7 +474,6 @@ def generate_turn(
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
-    system_message = conv.get_system_message()
     conv.append_message(role, None)
     model_api_dict = api_endpoint_info.get(model_name, None)
     images = conv.get_images()
@@ -492,7 +492,6 @@ def generate_turn(
             yield (
                 state,
                 state.to_gradio_chatbot(),
-                system_message,
                 disable_btn,
                 disable_btn,
                 disable_btn,
@@ -546,7 +545,7 @@ def generate_turn(
 
     # conv.update_last_message("▌")
     conv.update_last_message(html_code)
-    yield (state, state.to_gradio_chatbot(), system_message) + (disable_btn,) * 6
+    yield (state, state.to_gradio_chatbot()) + (disable_btn,) * 6
 
     try:
         data = {"text": ""}
@@ -555,13 +554,11 @@ def generate_turn(
                 output = data["text"].strip()
                 # conv.update_last_message(output + "▌")
                 conv.update_last_message(output + html_code)
-                yield (state, state.to_gradio_chatbot(), system_message) + (
-                    disable_btn,
-                ) * 6
+                yield (state, state.to_gradio_chatbot()) + (disable_btn,) * 6
             else:
                 output = data["text"] + f"\n\n(error_code: {data['error_code']})"
                 conv.update_last_message(output)
-                yield (state, state.to_gradio_chatbot(), system_message) + (
+                yield (state, state.to_gradio_chatbot()) + (
                     disable_btn,
                     disable_btn,
                     disable_btn,
@@ -572,13 +569,13 @@ def generate_turn(
                 return
         output = data["text"].strip()
         conv.update_last_message(output)
-        yield (state, state.to_gradio_chatbot(), system_message) + (enable_btn,) * 6
+        yield (state, state.to_gradio_chatbot()) + (enable_btn,) * 6
     except requests.exceptions.RequestException as e:
         conv.update_last_message(
             f"{SERVER_ERROR_MSG}\n\n"
             f"(error_code: {ErrorCode.GRADIO_REQUEST_ERROR}, {e})"
         )
-        yield (state, state.to_gradio_chatbot(), system_message) + (
+        yield (state, state.to_gradio_chatbot()) + (
             disable_btn,
             disable_btn,
             disable_btn,
@@ -592,7 +589,7 @@ def generate_turn(
             f"{SERVER_ERROR_MSG}\n\n"
             f"(error_code: {ErrorCode.GRADIO_STREAM_UNKNOWN_ERROR}, {e})"
         )
-        yield (state, state.to_gradio_chatbot(), system_message) + (
+        yield (state, state.to_gradio_chatbot()) + (
             disable_btn,
             disable_btn,
             disable_btn,
@@ -632,7 +629,6 @@ def generate_turn(
 
 def bot_response(
     state,
-    system_message,
     temperature,
     top_p,
     max_new_tokens,
@@ -646,14 +642,10 @@ def bot_response(
     top_p = float(top_p)
     max_new_tokens = int(max_new_tokens)
 
-    if system_message:
-        state.conv.set_system_message(system_message)
-    system_message = state.conv.get_system_message()
-
     if state.skip_next:
         # This generate call is skipped due to invalid inputs
         state.skip_next = False
-        yield (state, state.to_gradio_chatbot(), system_message) + (no_change_btn,) * 6
+        yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 6
         return
 
     if apply_rate_limit:
@@ -662,9 +654,7 @@ def bot_response(
             error_msg = RATE_LIMIT_MSG + "\n\n" + ret["reason"]
             logger.info(f"rate limit reached. ip: {ip}. error_msg: {ret['reason']}")
             state.conv.update_last_message(error_msg)
-            yield (state, state.to_gradio_chatbot(), system_message) + (
-                no_change_btn,
-            ) * 6
+            yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 6
             return
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -840,7 +830,7 @@ We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https
     gr.Markdown(about_markdown, elem_id="about_markdown")
 
 
-def build_single_model_ui(demo, models, add_promotion_links=False):
+def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo=True):
     promotion = (
         """
 - | [GitHub](https://github.com/lm-sys/FastChat) | [Dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md) | [Twitter](https://twitter.com/lmsysorg) | [Discord](https://discord.gg/HSWAKCrnFx) |
@@ -930,12 +920,6 @@ def build_single_model_ui(demo, models, add_promotion_links=False):
     imagebox = gr.State(None)
     btn_list = [upvote_btn, downvote_btn, flag_btn, regenerate_btn, undo_btn, clear_btn]
 
-    demo.load(
-        init_chat,
-        [state, model_selector, system_message],
-        [state, chatbot, system_message, textbox, imagebox] + btn_list,
-    )
-
     upvote_btn.click(
         upvote_last_response,
         [state, model_selector],
@@ -956,77 +940,80 @@ def build_single_model_ui(demo, models, add_promotion_links=False):
         regenerate, state, [state, chatbot, textbox, imagebox] + btn_list
     ).then(
         bot_response,
-        [state, system_message, temperature, top_p, max_output_tokens],
-        [state, chatbot, system_message] + btn_list,
+        [state, temperature, top_p, max_output_tokens],
+        [state, chatbot] + btn_list,
     )
-    clear_btn.click(clear_history, None, [state, chatbot, textbox, imagebox] + btn_list)
-
-    system_message.blur(
+    clear_btn.click(
         clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
     ).then(
         init_chat,
-        [state, model_selector, system_message],
+        [model_selector],
         [state, chatbot, system_message, textbox, imagebox] + btn_list,
+    )
+
+    system_message.blur(
+        set_system_message,
+        [state, model_selector, system_message],
+        [state, chatbot, textbox, imagebox] + btn_list,
     )
 
     model_selector.change(
         clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
     ).then(
         init_chat,
-        [state, model_selector, system_message],
+        [model_selector],
         [state, chatbot, system_message, textbox, imagebox] + btn_list,
     )
 
     textbox.submit(
         add_text,
-        [state, model_selector, system_message, textbox, imagebox],
-        [state, chatbot, system_message, textbox, imagebox] + btn_list,
+        [state, model_selector, textbox, imagebox],
+        [state, chatbot, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
-        [state, system_message, temperature, top_p, max_output_tokens],
-        [state, chatbot, system_message] + btn_list,
+        [state, temperature, top_p, max_output_tokens],
+        [state, chatbot] + btn_list,
     )
     send_btn.click(
         add_text,
-        [state, model_selector, system_message, textbox, imagebox],
-        [state, chatbot, system_message, textbox, imagebox] + btn_list,
+        [state, model_selector, textbox, imagebox],
+        [state, chatbot, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
-        [state, system_message, temperature, top_p, max_output_tokens],
-        [state, chatbot, system_message] + btn_list,
+        [state, temperature, top_p, max_output_tokens],
+        [state, chatbot] + btn_list,
     )
+
+    url_params = gr.JSON(visible=False)
+    if args.show_terms_of_use:
+        load_js = get_window_url_params_with_tos_js
+    else:
+        load_js = get_window_url_params_js
+
+    if add_load_demo:
+        demo.load(
+            load_demo,
+            [url_params],
+            [model_selector],
+            js=load_js,
+        ).then(
+            init_chat,
+            [model_selector],
+            [state, chatbot, system_message, textbox, imagebox] + btn_list,
+        )
 
     return [state, model_selector]
 
 
 def build_demo(models):
+    if args.model_list_mode not in ["once", "reload"]:
+        raise ValueError(f"Unknown model list mode: {args.model_list_mode}")
     with gr.Blocks(
         title="Chat with Open Large Language Models",
         theme=gr.themes.Default(),
         css=block_css,
     ) as demo:
-        url_params = gr.JSON(visible=False)
-
-        state, model_selector = build_single_model_ui(demo, models)
-
-        if args.model_list_mode not in ["once", "reload"]:
-            raise ValueError(f"Unknown model list mode: {args.model_list_mode}")
-
-        if args.show_terms_of_use:
-            load_js = get_window_url_params_with_tos_js
-        else:
-            load_js = get_window_url_params_js
-
-        demo.load(
-            load_demo,
-            [url_params],
-            [
-                state,
-                model_selector,
-            ],
-            js=load_js,
-        )
-
+        build_single_model_ui(demo, models, add_load_demo=True)
     return demo
 
 
