@@ -357,6 +357,8 @@ def init_chat(model_selector):
     state = State(model_selector)
     if state.conv.get_system_message():
         system_message = state.conv.get_system_message()
+    else:
+        system_message = ""
     return (state, state.to_gradio_chatbot(), system_message, "", None) + (
         disable_btn,
     ) * 6
