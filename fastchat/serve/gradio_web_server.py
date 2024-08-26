@@ -117,6 +117,12 @@ class State:
         self.model_name = model_name
         self.oai_thread_id = None
         self.is_vision = is_vision
+        self.examples = {}
+        self.assistant_first_message = (
+            model_api_dict.get("assistant_first_message", None)
+            if model_api_dict
+            else None
+        )
 
         # NOTE(chris): This could be sort of a hack since it assumes the user only uploads one image. If they can upload multiple, we should store a list of image hashes.
         self.has_csam_image = False
@@ -134,9 +140,8 @@ class State:
     def to_gradio_chatbot(self):
         history = self.conv.to_gradio_chatbot()
 
-        model_api_dict = api_endpoint_info.get(self.model_name, None)
-        if model_api_dict and "assistant_first_message" in model_api_dict:
-            history = [(None, model_api_dict["assistant_first_message"])] + history
+        if self.assistant_first_message is not None:
+            history = [(None, self.assistant_first_message)] + history
         return history
 
     def dict(self):
@@ -189,8 +194,17 @@ def get_model_list(controller_url, register_api_endpoint_file, vision_arena):
     # Add models from the API providers
     if register_api_endpoint_file:
         fs, fspath = fsspec.url_to_fs(register_api_endpoint_file)
-        with fs.open(fspath, "r") as file:
-            api_endpoint_info = json.loads(file.read())
+        try:
+            with fs.open(fspath, "r") as file:
+                api_endpoint_info = json.loads(file.read())
+        except (FileNotFoundError, json.decoder.JSONDecodeError) as err:
+            api_endpoint_info = {
+                "error-loading-api-endpoints": {
+                    "model_name": "gpt-3.5-turbo",
+                    "api_type": "openai",
+                    "assistant_first_message": f"Error loading api endpoint file: {err}",
+                }
+            }
         for mdl, mdl_dict in api_endpoint_info.items():
             mdl_vision = mdl_dict.get("vision-arena", False)
             mdl_text = mdl_dict.get("text-arena", True)
@@ -293,7 +307,11 @@ def undo(state, request: gr.Request):
     # Remove the last user message too.
     if state.conv.messages:
         state.conv.messages.pop()
-    return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 6
+    if not state.conv.messages:
+        new_btn_state = disable_btn
+    else:
+        new_btn_state = no_change_btn
+    return (state, state.to_gradio_chatbot(), "", None) + (new_btn_state,) * 6
 
 
 def regenerate(state, request: gr.Request):
@@ -306,13 +324,6 @@ def regenerate(state, request: gr.Request):
     while state.conv.messages and state.conv.messages[-1][0] != state.conv.roles[0]:
         state.conv.messages.pop()
     return (state, state.to_gradio_chatbot(), "", None) + (disable_btn,) * 6
-
-
-def clear_history(request: gr.Request):
-    ip = get_ip(request)
-    logger.info(f"clear_history. ip: {ip}")
-    state = None
-    return (state, [], "", None) + (disable_btn,) * 6
 
 
 def get_ip(request: gr.Request):
@@ -353,15 +364,50 @@ def _prepare_text_with_image(state, text, images, csam_flag):
     return text
 
 
-def init_chat(model_selector):
+def init_chat(request: gr.Request, state, model_selector, example_selector):
+    ip = get_ip(request)
+    logger.info(f"init_chat. ip: {ip}")
+    no_examples_label = "Examples..."
+    if not state or state.model_name != model_selector:
+        example_selector = no_examples_label
     state = State(model_selector)
     if state.conv.get_system_message():
         system_message = state.conv.get_system_message()
     else:
         system_message = ""
-    return (state, state.to_gradio_chatbot(), system_message, "", None) + (
-        disable_btn,
-    ) * 6
+    model_api_dict = api_endpoint_info.get(model_selector, None)
+    if model_api_dict:
+        examples_file = model_api_dict.get("examples_file", None)
+        if examples_file:
+            fs, fspath = fsspec.url_to_fs(examples_file)
+            try:
+                with fs.open(fspath, "r") as file:
+                    state.examples = json.loads(file.read())
+            except (FileNotFoundError, json.decoder.JSONDecodeError) as err:
+                state.examples = {
+                    "error-loading-examples": [
+                        ["assistant", f"Error loading examples file: {err}"]
+                    ]
+                }
+                example_selector = "error-loading-examples"
+    if example_selector and example_selector in state.examples:
+        state.conv.messages = state.examples[example_selector]
+    example_selector_dropdown = gr.Dropdown(
+        choices=[no_examples_label] + list(state.examples.keys()),
+        value=example_selector,
+        interactive=True,
+        show_label=False,
+        container=False,
+        visible=bool(state.examples),
+    )
+    return (
+        state,
+        state.to_gradio_chatbot(),
+        system_message,
+        "",
+        None,
+        example_selector_dropdown,
+    ) + (disable_btn,) * 6
 
 
 def set_system_message(state, model_selector, system_message):
@@ -862,6 +908,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 show_label=False,
                 container=False,
             )
+            example_selector = gr.Dropdown(visible=False)
 
         chatbot = gr.Chatbot(
             elem_id="chatbot",
@@ -909,7 +956,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         max_output_tokens = gr.Slider(
             minimum=16,
             maximum=2048,
-            value=256,
+            value=1024,
             step=64,
             interactive=True,
             label="Max output tokens",
@@ -946,11 +993,10 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         [state, chatbot] + btn_list,
     )
     clear_btn.click(
-        clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
-    ).then(
         init_chat,
-        [model_selector],
-        [state, chatbot, system_message, textbox, imagebox] + btn_list,
+        [state, model_selector, example_selector],
+        [state, chatbot, system_message, textbox, imagebox, example_selector]
+        + btn_list,
     )
 
     system_message.blur(
@@ -960,11 +1006,17 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     )
 
     model_selector.change(
-        clear_history, None, [state, chatbot, textbox, imagebox] + btn_list
-    ).then(
         init_chat,
-        [model_selector],
-        [state, chatbot, system_message, textbox, imagebox] + btn_list,
+        [state, model_selector, example_selector],
+        [state, chatbot, system_message, textbox, imagebox, example_selector]
+        + btn_list,
+    )
+
+    example_selector.change(
+        init_chat,
+        [state, model_selector, example_selector],
+        [state, chatbot, system_message, textbox, imagebox, example_selector]
+        + btn_list,
     )
 
     textbox.submit(
@@ -1000,8 +1052,9 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             js=load_js,
         ).then(
             init_chat,
-            [model_selector],
-            [state, chatbot, system_message, textbox, imagebox] + btn_list,
+            [state, model_selector, example_selector],
+            [state, chatbot, system_message, textbox, imagebox, example_selector]
+            + btn_list,
         )
 
     return [state, model_selector]

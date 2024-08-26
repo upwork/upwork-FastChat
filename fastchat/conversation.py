@@ -390,7 +390,7 @@ class Conversation:
     def to_gradio_chatbot(self):
         """Convert the conversation to gradio chatbot format."""
         ret = []
-        for i, (role, msg) in enumerate(self.messages[self.offset :]):
+        for role, msg in self.messages[self.offset :]:
             if role == self.roles[0]:
                 if type(msg) is tuple:
                     msg, image = msg
@@ -476,13 +476,11 @@ class Conversation:
             ret = []
         else:
             ret = [{"role": "system", "content": self.system_message}]
-
-        for i, (_, msg) in enumerate(self.messages[self.offset :]):
-            if i % 2 == 0:
-                ret.append({"role": "user", "content": msg})
-            else:
-                if msg is not None:
-                    ret.append({"role": "assistant", "content": msg})
+        for role, msg in self.messages[self.offset :]:
+            ret.append({"role": role, "content": msg})
+        if ret and ret[-1]["role"] == self.roles[1] and ret[-1]["content"] is None:
+            # Remove final empty assistant role added for generation.
+            ret.pop()
         return ret
 
     def to_gemini_api_messages(self):
