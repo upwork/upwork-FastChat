@@ -117,7 +117,6 @@ class State:
         self.model_name = model_name
         self.oai_thread_id = None
         self.is_vision = is_vision
-        self.examples = {}
         self.assistant_first_message = (
             model_api_dict.get("assistant_first_message", None)
             if model_api_dict
@@ -371,10 +370,7 @@ def init_chat(request: gr.Request, state, model_selector, example_selector):
     if not state or state.model_name != model_selector:
         example_selector = no_examples_label
     state = State(model_selector)
-    if state.conv.get_system_message():
-        system_message = state.conv.get_system_message()
-    else:
-        system_message = ""
+    examples_dict = {}
     model_api_dict = api_endpoint_info.get(model_selector, None)
     if model_api_dict:
         examples_file = model_api_dict.get("examples_file", None)
@@ -382,24 +378,32 @@ def init_chat(request: gr.Request, state, model_selector, example_selector):
             fs, fspath = fsspec.url_to_fs(examples_file)
             try:
                 with fs.open(fspath, "r") as file:
-                    state.examples = json.loads(file.read())
+                    examples_dict = json.loads(file.read())
             except (FileNotFoundError, json.decoder.JSONDecodeError) as err:
-                state.examples = {
+                examples_dict = {
                     "error-loading-examples": [
                         ["assistant", f"Error loading examples file: {err}"]
                     ]
                 }
                 example_selector = "error-loading-examples"
-    if example_selector and example_selector in state.examples:
-        state.conv.messages = state.examples[example_selector]
+    if example_selector and example_selector in examples_dict:
+        state.conv.messages = examples_dict[example_selector]
+        if state.conv.messages and state.conv.messages[0][0] == "system":
+            state.conv.set_system_message(state.conv.messages[0][1])
+            state.conv.messages = state.conv.messages[1:]
+        state.assistant_first_message = None
     example_selector_dropdown = gr.Dropdown(
-        choices=[no_examples_label] + list(state.examples.keys()),
+        choices=[no_examples_label] + list(examples_dict.keys()),
         value=example_selector,
         interactive=True,
         show_label=False,
         container=False,
-        visible=bool(state.examples),
+        visible=bool(examples_dict),
     )
+    if state.conv.get_system_message():
+        system_message = state.conv.get_system_message()
+    else:
+        system_message = ""
     return (
         state,
         state.to_gradio_chatbot(),
@@ -589,7 +593,8 @@ def generate_turn(
             state,
         )
 
-    html_code = ' <span class="cursor"></span> '
+    # html_code = ' <span class="cursor"></span> '
+    html_code = "▌"
 
     # conv.update_last_message("▌")
     conv.update_last_message(html_code)
@@ -915,6 +920,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             label="Scroll down and start chatting",
             height=550,
             show_copy_button=True,
+            render_markdown=False,
         )
     with gr.Row():
         textbox = gr.Textbox(
