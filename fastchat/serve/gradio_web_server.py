@@ -3,6 +3,7 @@ The gradio demo server for chatting with a single model.
 """
 
 import argparse
+import base64
 from collections import defaultdict
 import datetime
 import hashlib
@@ -51,9 +52,8 @@ logger = build_logger("gradio_web_server", "gradio_web_server.log")
 headers = {"User-Agent": "FastChat Client"}
 
 no_change_btn = gr.Button()
-enable_btn = gr.Button(interactive=True, visible=True)
+enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
-invisible_btn = gr.Button(interactive=False, visible=False)
 
 controller_url = None
 enable_moderation = False
@@ -253,7 +253,7 @@ def load_demo(url_params, request: gr.Request):
             controller_url, args.register_api_endpoint_file, vision_arena=False
         )
 
-    return load_demo_single(models, url_params)
+    return load_demo_single(models, url_params), url_params
 
 
 def vote_last_response(state, vote_type, model_selector, request: gr.Request):
@@ -363,13 +363,49 @@ def _prepare_text_with_image(state, text, images, csam_flag):
     return text
 
 
-def init_chat(request: gr.Request, state, model_selector, example_selector):
+def get_state(state, model_selector, example_selector):
+    return base64.urlsafe_b64encode(
+        json.dumps(
+            {
+                "model": model_selector,
+                "example": example_selector,
+                "system_message": state.conv.get_system_message(),
+                "messages": state.conv.messages,
+            }
+        ).encode("utf-8")
+    ).decode("utf-8")
+
+
+def clear_system_message():
+    return ""
+
+
+def init_chat(
+    request: gr.Request,
+    state,
+    model_selector,
+    example_selector,
+    system_message,
+    url_params=None,
+):
     ip = get_ip(request)
-    logger.info(f"init_chat. ip: {ip}")
     no_examples_label = "Examples..."
-    if not state or state.model_name != model_selector:
-        example_selector = no_examples_label
+
+    url_state = {}
+    if url_params and "state" in url_params:
+        state_str = url_params["state"].encode("utf-8")
+        url_state = json.loads(base64.urlsafe_b64decode(state_str).decode("utf-8"))
+        model_selector = url_state.get("model", "")
+        example_selector = url_state.get("example", "")
+    else:
+        if not state or state.model_name != model_selector:
+            example_selector = no_examples_label
+    logger.info(f"init_chat. ip: {ip} state: {url_state}")
+
     state = State(model_selector)
+    new_system_message = None
+    if not system_message:
+        new_system_message = state.conv.get_system_message()
     examples_dict = {}
     model_api_dict = api_endpoint_info.get(model_selector, None)
     if model_api_dict:
@@ -389,39 +425,37 @@ def init_chat(request: gr.Request, state, model_selector, example_selector):
     if example_selector and example_selector in examples_dict:
         state.conv.messages = examples_dict[example_selector]
         if state.conv.messages and state.conv.messages[0][0] == "system":
-            state.conv.set_system_message(state.conv.messages[0][1])
+            if not system_message:
+                new_system_message = state.conv.messages[0][1]
             state.conv.messages = state.conv.messages[1:]
         state.assistant_first_message = None
+
+    if url_state:
+        new_system_message = url_state.get("system_message", "")
+    if new_system_message is not None:
+        system_message = new_system_message
+    state.conv.set_system_message(system_message)
+    if url_state:
+        state.conv.messages = url_state.get("messages", [])
+        state.assistant_first_message = None
+
+    model_selector_dropdown = gr.Dropdown(
+        value=model_selector,
+    )
     example_selector_dropdown = gr.Dropdown(
         choices=[no_examples_label] + list(examples_dict.keys()),
         value=example_selector,
-        interactive=True,
-        show_label=False,
-        container=False,
         visible=bool(examples_dict),
     )
-    if state.conv.get_system_message():
-        system_message = state.conv.get_system_message()
-    else:
-        system_message = ""
     return (
         state,
         state.to_gradio_chatbot(),
         system_message,
         "",
         None,
+        model_selector_dropdown,
         example_selector_dropdown,
     ) + (disable_btn,) * 6
-
-
-def set_system_message(state, model_selector, system_message):
-    if system_message != state.conv.get_system_message():
-        state = State(model_selector)
-        btn_state = disable_btn
-    else:
-        btn_state = no_change_btn
-    state.conv.set_system_message(system_message)
-    return (state, state.to_gradio_chatbot(), "", None) + (btn_state,) * 6
 
 
 def add_text(state, model_selector, text, image, request: gr.Request):
@@ -902,6 +936,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
 """
 
     state = gr.State()
+    share_str = gr.Textbox(visible=False)
     gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
     with gr.Group(elem_id="share-region-named"):
@@ -913,7 +948,12 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 show_label=False,
                 container=False,
             )
-            example_selector = gr.Dropdown(visible=False)
+            example_selector = gr.Dropdown(
+                visible=False,
+                interactive=True,
+                show_label=False,
+                container=False,
+            )
 
         chatbot = gr.Chatbot(
             elem_id="chatbot",
@@ -931,12 +971,13 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         send_btn = gr.Button(value="Send", variant="primary", scale=0)
 
     with gr.Row() as button_row:
-        upvote_btn = gr.Button(value="👍  Upvote", interactive=False)
-        downvote_btn = gr.Button(value="👎  Downvote", interactive=False)
-        flag_btn = gr.Button(value="⚠️  Flag", interactive=False)
+        upvote_btn = gr.Button(value="👍  Upvote", interactive=False, visible=False)
+        downvote_btn = gr.Button(value="👎  Downvote", interactive=False, visible=False)
+        flag_btn = gr.Button(value="⚠️  Flag", interactive=False, visible=False)
         regenerate_btn = gr.Button(value="🔄  Regenerate", interactive=False)
         undo_btn = gr.Button(value="⟲  Undo", interactive=False)
         clear_btn = gr.Button(value="🗑️  Clear history", interactive=False)
+        share_btn = gr.Button(value="⎘ Copy Link")
 
     with gr.Accordion("Parameters", open=False) as parameter_row:
         system_message = gr.Textbox(
@@ -998,43 +1039,68 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         [state, temperature, top_p, max_output_tokens],
         [state, chatbot] + btn_list,
     )
-    clear_btn.click(
-        init_chat,
+
+    share_btn.click(
+        get_state,
         [state, model_selector, example_selector],
-        [state, chatbot, system_message, textbox, imagebox, example_selector]
-        + btn_list,
-    )
-
-    system_message.blur(
-        set_system_message,
-        [state, model_selector, system_message],
-        [state, chatbot, textbox, imagebox] + btn_list,
-    )
-
-    model_selector.change(
-        init_chat,
-        [state, model_selector, example_selector],
-        [state, chatbot, system_message, textbox, imagebox, example_selector]
-        + btn_list,
-    )
-
-    example_selector.change(
-        init_chat,
-        [state, model_selector, example_selector],
-        [state, chatbot, system_message, textbox, imagebox, example_selector]
-        + btn_list,
-    )
-
-    textbox.submit(
-        add_text,
-        [state, model_selector, textbox, imagebox],
-        [state, chatbot, textbox, imagebox] + btn_list,
+        [share_str],
     ).then(
-        bot_response,
-        [state, temperature, top_p, max_output_tokens],
-        [state, chatbot] + btn_list,
+        None,
+        [share_str],
+        js=r"""
+function copy(share_str) {
+  let text = window.location.href.split('?')[0] + '?state=' + share_str;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+  } else {
+    const textarea = document.createElement('textarea');
+    textarea.textContent = text;
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+}
+""",
     )
-    send_btn.click(
+
+    gr.on(
+        [clear_btn.click, system_message.blur],
+        init_chat,
+        [state, model_selector, example_selector, system_message],
+        [
+            state,
+            chatbot,
+            system_message,
+            textbox,
+            imagebox,
+            model_selector,
+            example_selector,
+        ]
+        + btn_list,
+    )
+    gr.on(
+        [model_selector.input, example_selector.input],
+        clear_system_message,
+        [],
+        [system_message],
+    ).then(
+        init_chat,
+        [state, model_selector, example_selector, system_message],
+        [
+            state,
+            chatbot,
+            system_message,
+            textbox,
+            imagebox,
+            model_selector,
+            example_selector,
+        ]
+        + btn_list,
+    )
+
+    gr.on(
+        [textbox.submit, send_btn.click],
         add_text,
         [state, model_selector, textbox, imagebox],
         [state, chatbot, textbox, imagebox] + btn_list,
@@ -1054,12 +1120,20 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         demo.load(
             load_demo,
             [url_params],
-            [model_selector],
+            [model_selector, url_params],
             js=load_js,
         ).then(
             init_chat,
-            [state, model_selector, example_selector],
-            [state, chatbot, system_message, textbox, imagebox, example_selector]
+            [state, model_selector, example_selector, system_message, url_params],
+            [
+                state,
+                chatbot,
+                system_message,
+                textbox,
+                imagebox,
+                model_selector,
+                example_selector,
+            ]
             + btn_list,
         )
 
