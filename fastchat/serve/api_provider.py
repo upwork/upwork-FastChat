@@ -23,6 +23,7 @@ def get_api_provider_stream_iter(
     top_p,
     max_new_tokens,
     state,
+    stream=True,
 ):
     api_key = model_api_dict.get("api_key", None)
     if api_key and api_key.startswith("env:"):
@@ -42,6 +43,7 @@ def get_api_provider_stream_iter(
             max_new_tokens,
             api_base=model_api_dict.get("api_base", None),
             api_key=api_key,
+            stream=stream,
         )
     elif model_api_dict["api_type"] == "openai_assistant":
         last_prompt = conv.messages[-2][1]
@@ -193,6 +195,7 @@ def openai_api_stream_iter(
     max_new_tokens,
     api_base=None,
     api_key=None,
+    stream=True,
 ):
     import openai
 
@@ -247,8 +250,10 @@ def openai_api_stream_iter(
             prompt=messages,
             temperature=temperature,
             max_tokens=max_new_tokens,
-            stream=True,
+            stream=stream,
         )
+        if not stream:
+            res = [res]
         text = ""
         for chunk in res:
             if len(chunk.choices) > 0:
@@ -264,13 +269,22 @@ def openai_api_stream_iter(
             model=model_name,
             messages=messages,
             temperature=temperature,
-            max_tokens=max_new_tokens,
-            stream=True,
+            max_completion_tokens=max_new_tokens,
+            stream=stream,
         )
-        text = ""
-        for chunk in res:
-            if len(chunk.choices) > 0:
-                text += chunk.choices[0].delta.content or ""
+        if stream:
+            text = ""
+            for chunk in res:
+                if len(chunk.choices) > 0:
+                    text += chunk.choices[0].delta.content or ""
+                    data = {
+                        "text": text,
+                        "error_code": 0,
+                    }
+                    yield data
+        else:
+            if len(res.choices) > 0:
+                text = res.choices[0].message.content or ""
                 data = {
                     "text": text,
                     "error_code": 0,

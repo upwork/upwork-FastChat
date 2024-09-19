@@ -608,6 +608,7 @@ def generate_turn(
             images,
         )
     else:
+        stream = True
         if use_recommended_config:
             recommended_config = model_api_dict.get("recommended_config", None)
             if recommended_config is not None:
@@ -616,6 +617,12 @@ def generate_turn(
                 max_new_tokens = recommended_config.get(
                     "max_new_tokens", max_new_tokens
                 )
+        config_override = model_api_dict.get("config_override", None)
+        if config_override is not None:
+            temperature = config_override.get("temperature", temperature)
+            top_p = config_override.get("top_p", top_p)
+            max_new_tokens = config_override.get("max_new_tokens", max_new_tokens)
+            stream = config_override.get("stream", stream)
 
         stream_iter = get_api_provider_stream_iter(
             conv,
@@ -625,6 +632,7 @@ def generate_turn(
             top_p,
             max_new_tokens,
             state,
+            stream=stream,
         )
 
     # html_code = ' <span class="cursor"></span> '
