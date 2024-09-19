@@ -417,7 +417,7 @@ def chat_completion_openai(model, conv, temperature, max_tokens, api_dict=None):
                 messages=messages,
                 n=1,
                 temperature=temperature,
-                max_tokens=max_tokens,
+                max_completion_tokens=max_tokens,
             )
             output = response["choices"][0]["message"]["content"]
             break
