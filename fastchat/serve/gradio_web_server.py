@@ -727,6 +727,7 @@ def bot_response(
     temperature,
     top_p,
     max_new_tokens,
+    generate_thoughts,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -753,7 +754,11 @@ def bot_response(
             return
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
-    if model_api_dict is not None and model_api_dict.get("has_thoughts", False):
+    if (
+        generate_thoughts
+        and model_api_dict is not None
+        and model_api_dict.get("has_thoughts", False)
+    ):
         # Generate thoughts turn.
         yield from generate_turn(
             state,
@@ -1016,6 +1021,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             interactive=True,
             label="Max output tokens",
         )
+        generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
@@ -1044,7 +1050,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         regenerate, state, [state, chatbot, textbox, imagebox] + btn_list
     ).then(
         bot_response,
-        [state, temperature, top_p, max_output_tokens],
+        [state, temperature, top_p, max_output_tokens, generate_thoughts],
         [state, chatbot] + btn_list,
     )
 
@@ -1114,7 +1120,7 @@ function copy(share_str) {
         [state, chatbot, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
-        [state, temperature, top_p, max_output_tokens],
+        [state, temperature, top_p, max_output_tokens, generate_thoughts],
         [state, chatbot] + btn_list,
     )
 
