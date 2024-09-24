@@ -1014,8 +1014,8 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             label="Top P",
         )
         max_output_tokens = gr.Slider(
-            minimum=16,
-            maximum=2048,
+            minimum=64,
+            maximum=8192,
             value=1024,
             step=64,
             interactive=True,
