@@ -16,6 +16,7 @@ import uuid
 import fsspec
 import gradio as gr
 import requests
+import yaml
 
 from fastchat.conversation import (
     get_conv_template,
@@ -414,7 +415,10 @@ def init_chat(
             fs, fspath = fsspec.url_to_fs(examples_file)
             try:
                 with fs.open(fspath, "r") as file:
-                    examples_dict = json.loads(file.read())
+                    if fspath.endswith(".yaml"):
+                        examples_dict = yaml.safe_load(file.read())
+                    else:
+                        examples_dict = json.loads(file.read())
             except (FileNotFoundError, json.decoder.JSONDecodeError) as err:
                 examples_dict = {
                     "error-loading-examples": [
@@ -423,7 +427,13 @@ def init_chat(
                 }
                 example_selector = "error-loading-examples"
     if example_selector and example_selector in examples_dict:
-        state.conv.messages = examples_dict[example_selector]
+        messages = examples_dict[example_selector]
+        if not isinstance(messages, list):
+            raise ValueError("Examples must be a list of messages.")
+        for i, turn in enumerate(messages):
+            if isinstance(turn, dict):
+                messages[i] = (turn["role"], turn["content"])
+        state.conv.messages = messages
         if state.conv.messages and state.conv.messages[0][0] == "system":
             if not system_message:
                 new_system_message = state.conv.messages[0][1]
@@ -995,7 +1005,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     with gr.Accordion("Parameters", open=False) as parameter_row:
         system_message = gr.Textbox(
             label="System Message",
-            max_lines=6,
+            lines=6,
         )
         temperature = gr.Slider(
             minimum=0.0,
