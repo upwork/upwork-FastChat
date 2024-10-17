@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 
 class DataStore(ABC):
-    def __init__(self, config: dict):
+    def __init__(self):
         self.client = self.connect()
 
     @abstractmethod

@@ -13,6 +13,8 @@ import random
 import time
 import uuid
 
+from dotenv import load_dotenv
+
 import fsspec
 import gradio as gr
 import requests
@@ -47,7 +49,9 @@ from fastchat.utils import (
     parse_gradio_auth_creds,
     load_image,
 )
+from queryunderstanding.query_understanding import QueryUnderstanding
 
+load_dotenv()
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
 headers = {"User-Agent": "FastChat Client"}
@@ -55,6 +59,8 @@ headers = {"User-Agent": "FastChat Client"}
 no_change_btn = gr.Button()
 enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
+
+query_understanding = QueryUnderstanding()
 
 controller_url = None
 enable_moderation = False
@@ -567,12 +573,30 @@ def generate_turn(
     max_new_tokens,
     request: gr.Request,
     use_recommended_config=False,
+    rag=None,
+    summarize_results=False,
+    freelancer_ids_input=None,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
     conv.append_message(role, None)
     model_api_dict = api_endpoint_info.get(model_name, None)
     images = conv.get_images()
+
+    if rag:
+        retrieved_data = query_understanding.search(
+            conv,
+            freelancer_ids=freelancer_ids_input.split(","),
+            enforce_rag=rag,
+            summarize_results=summarize_results,
+        )
+        rag_message = f"""
+        === Context data ===
+        {retrieved_data}
+        === End of context data ===
+        """
+        conv.update_last_message(rag_message)
+        return
 
     if model_api_dict is None:
         # Query worker address
@@ -738,7 +762,10 @@ def bot_response(
     top_p,
     max_new_tokens,
     generate_thoughts,
+    rag,
+    summarize_results,
     request: gr.Request,
+    freelancer_ids_input,
     apply_rate_limit=True,
     use_recommended_config=False,
 ):
@@ -762,6 +789,21 @@ def bot_response(
             state.conv.update_last_message(error_msg)
             yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 6
             return
+
+    logger.info(f"RAG: {rag}")
+    if rag != "No RAG":
+        yield from generate_turn(
+            state,
+            role=state.conv.roles[3],
+            temperature=temperature,
+            top_p=top_p,
+            max_new_tokens=max_new_tokens,
+            request=request,
+            use_recommended_config=use_recommended_config,
+            rag=rag,
+            summarize_results=summarize_results,
+            freelancer_ids_input=freelancer_ids_input,
+        )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
     if (
@@ -943,20 +985,20 @@ We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https
 def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo=True):
     promotion = (
         """
-- | [GitHub](https://github.com/lm-sys/FastChat) | [Dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md) | [Twitter](https://twitter.com/lmsysorg) | [Discord](https://discord.gg/HSWAKCrnFx) |
-- Introducing Llama 2: The Next Generation Open Source Large Language Model. [[Website]](https://ai.meta.com/llama/)
-- Vicuna: An Open-Source Chatbot Impressing GPT-4 with 90% ChatGPT Quality. [[Blog]](https://lmsys.org/blog/2023-03-30-vicuna/)
+    - | [GitHub](https://github.com/lm-sys/FastChat) | [Dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md) | [Twitter](https://twitter.com/lmsysorg) | [Discord](https://discord.gg/HSWAKCrnFx) |
+    - Introducing Llama 2: The Next Generation Open Source Large Language Model. [[Website]](https://ai.meta.com/llama/)
+    - Vicuna: An Open-Source Chatbot Impressing GPT-4 with 90% ChatGPT Quality. [[Blog]](https://lmsys.org/blog/2023-03-30-vicuna/)
 
-## 🤖 Choose any model to chat
-"""
+    ## 🤖 Choose any model to chat
+    """
         if add_promotion_links
         else ""
     )
 
     notice_markdown = f"""
-# 🏔️ Chat with Open Large Language Models
-{promotion}
-"""
+    # 🏔️ Chat with Open Large Language Models
+    {promotion}
+    """
 
     state = gr.State()
     share_str = gr.Textbox(visible=False)
@@ -971,12 +1013,32 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 show_label=False,
                 container=False,
             )
+            rag_selector = gr.Dropdown(
+                choices=[
+                    "No RAG",
+                    "Context-Aware",
+                    "Hybrid",
+                    "Vector Search",
+                    "Knowledge Graph",
+                ],
+                value="Context-Aware",
+                interactive=True,
+                show_label=False,
+                container=False,
+            )
             example_selector = gr.Dropdown(
                 visible=False,
                 interactive=True,
                 show_label=False,
                 container=False,
             )
+
+        # Add the new Textbox for freelancer IDs
+        freelancer_ids_input = gr.Textbox(
+            lines=3,
+            placeholder="Enter freelancer IDs separated by commas",
+            label="Freelancer IDs",
+        )
 
         chatbot = gr.Chatbot(
             elem_id="chatbot",
@@ -1032,6 +1094,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             label="Max output tokens",
         )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
+        summarize_results = gr.Checkbox(value=True, label="Summarize results")
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
@@ -1060,7 +1123,16 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         regenerate, state, [state, chatbot, textbox, imagebox] + btn_list
     ).then(
         bot_response,
-        [state, temperature, top_p, max_output_tokens, generate_thoughts],
+        [
+            state,
+            temperature,
+            top_p,
+            max_output_tokens,
+            generate_thoughts,
+            summarize_results,
+            rag_selector,
+            freelancer_ids_input,
+        ],
         [state, chatbot] + btn_list,
     )
 
@@ -1130,7 +1202,16 @@ function copy(share_str) {
         [state, chatbot, textbox, imagebox] + btn_list,
     ).then(
         bot_response,
-        [state, temperature, top_p, max_output_tokens, generate_thoughts],
+        [
+            state,
+            temperature,
+            top_p,
+            max_output_tokens,
+            generate_thoughts,
+            rag_selector,
+            summarize_results,
+            freelancer_ids_input,
+        ],
         [state, chatbot] + btn_list,
     )
 
