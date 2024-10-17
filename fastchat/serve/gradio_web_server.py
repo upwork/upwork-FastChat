@@ -13,8 +13,6 @@ import random
 import time
 import uuid
 
-from dotenv import load_dotenv
-
 import fsspec
 import gradio as gr
 import requests
@@ -51,7 +49,6 @@ from fastchat.utils import (
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
 
-load_dotenv()
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
 headers = {"User-Agent": "FastChat Client"}

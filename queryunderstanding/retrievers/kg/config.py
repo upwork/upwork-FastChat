@@ -1,24 +1,19 @@
-import os
-import boto3 
 import logging
-from dotenv import load_dotenv
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-#Load environment variables from .env file
-load_dotenv()
 
 logging.info("Loading configuration from environment variables and .env file")
 
 # Load environment variables
-NEPTUNE_ENDPOINT = os.getenv('NEPTUNE_ENDPOINT')
-NEPTUNE_PORT = os.getenv('NEPTUNE_PORT')
-AWS_REGION = os.getenv('AWS_REGION')
-AWS_PROFILE = os.getenv('AWS_PROFILE', 'up_ml')  # If you want to use a specific profile
+NEPTUNE_ENDPOINT = "docdb-cluster-instance-staging.c2bnogqj46bu.us-west-2.neptune.amazonaws.com"
+NEPTUNE_PORT = 8182
+AWS_REGION = "us-west-2"
+AWS_PROFILE = "up_stage"
 
-LLM_MODEL = os.getenv('LLM_MODEL')
-TIMEOUT_MS = int(os.getenv('TIMEOUT_MS', 7200000))
+LLM_MODEL = "gpt-4o"
+TIMEOUT_MS = 7200000
 
 logging.info(f"Loaded Neptune endpoint: {NEPTUNE_ENDPOINT}")
 logging.info(f"Loaded timeout value: {TIMEOUT_MS} ms")
@@ -145,18 +140,3 @@ SCHEMA ="""
                           "iso_code": 506
                           "taxonomy_level": 280
 """
-
-# Load OpenAI API key from environment variable
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-
-aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
-aws_secret_access_key = os.getenv('AWS_SECRET_ACCESS_KEY')
-
-if aws_access_key_id and aws_secret_access_key:
-    session = boto3.Session(
-        aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key
-    )
-    logging.info("AWS session created successfully")
-else:
-    logging.warning("AWS credentials are missing or improperly configured.")
