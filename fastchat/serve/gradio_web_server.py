@@ -574,7 +574,7 @@ def generate_turn(
     request: gr.Request,
     use_recommended_config=False,
     rag=None,
-    summarize_results=False
+    summarize_results=False,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -1022,6 +1022,14 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 interactive=True,
                 show_label=False,
                 container=False,
+            )
+        with gr.Accordion("Freelancers", open=True):
+            freelancer_info = [
+                f"{f['name']} - [{f['title']}]({f['url']})" for f in freelancers
+            ]
+            gr.Markdown(
+                "\n\n".join(freelancer_info),
+                elem_id="freelancer_markdown",
             )
             example_selector = gr.Dropdown(
                 visible=False,
