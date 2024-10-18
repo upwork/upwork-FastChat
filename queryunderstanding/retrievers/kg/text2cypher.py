@@ -28,7 +28,7 @@ def create_cypher_query(context):
         prompt = prompt_template.format(
             schema=SCHEMA,
             messages=context.messages,
-            freelancer_ids=context.objects["freelancer_ids"],
+            freelancers=context.objects["freelancers"],
             today=today,
         )
         response = client.chat.completions.create(

@@ -55,5 +55,6 @@ Guidelines:
 The user asks:
 {messages}
 
-### Freelancer IDs
-{freelancer_ids}
+### Freelancer
+Use the freelancer ID to identify the freelancer in the queries
+{freelancers}

@@ -48,6 +48,7 @@ from fastchat.utils import (
     load_image,
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
+from queryunderstanding.utils import load_freelancers
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -56,6 +57,8 @@ headers = {"User-Agent": "FastChat Client"}
 no_change_btn = gr.Button()
 enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
+
+freelancers: list[dict[str, str]] = load_freelancers()
 
 query_understanding = QueryUnderstanding()
 
@@ -571,8 +574,7 @@ def generate_turn(
     request: gr.Request,
     use_recommended_config=False,
     rag=None,
-    summarize_results=False,
-    freelancer_ids_input=None,
+    summarize_results=False
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -583,7 +585,7 @@ def generate_turn(
     if rag:
         retrieved_data = query_understanding.search(
             conv,
-            freelancer_ids=freelancer_ids_input.split(","),
+            freelancers=freelancers,
             enforce_rag=rag,
             summarize_results=summarize_results,
         )
@@ -762,7 +764,6 @@ def bot_response(
     rag,
     summarize_results,
     request: gr.Request,
-    freelancer_ids_input,
     apply_rate_limit=True,
     use_recommended_config=False,
 ):
@@ -799,7 +800,6 @@ def bot_response(
             use_recommended_config=use_recommended_config,
             rag=rag,
             summarize_results=summarize_results,
-            freelancer_ids_input=freelancer_ids_input,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1030,13 +1030,6 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 container=False,
             )
 
-        # Add the new Textbox for freelancer IDs
-        freelancer_ids_input = gr.Textbox(
-            lines=3,
-            placeholder="Enter freelancer IDs separated by commas",
-            label="Freelancer IDs",
-        )
-
         chatbot = gr.Chatbot(
             elem_id="chatbot",
             label="Scroll down and start chatting",
@@ -1128,7 +1121,6 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             generate_thoughts,
             summarize_results,
             rag_selector,
-            freelancer_ids_input,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1207,7 +1199,6 @@ function copy(share_str) {
             generate_thoughts,
             rag_selector,
             summarize_results,
-            freelancer_ids_input,
         ],
         [state, chatbot] + btn_list,
     )

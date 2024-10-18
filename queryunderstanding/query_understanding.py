@@ -26,7 +26,7 @@ class QueryUnderstanding:
         self,
         conversation: Conversation,
         summarize_results: bool,
-        freelancer_ids: list[str],
+        freelancers: list[dict[str, str]],
         enforce_rag: str | None = None,
     ) -> str:
         """
@@ -44,7 +44,7 @@ class QueryUnderstanding:
         context = Context(
             messages=messages,
             objects={
-                "freelancer_ids": freelancer_ids,
+                "freelancers": freelancers,
             },
         )
         results = [

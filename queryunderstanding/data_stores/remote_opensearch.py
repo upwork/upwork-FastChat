@@ -14,12 +14,14 @@ class RemoteOpenSearch(DataStore):
         pass
 
     def search(self, context) -> Results:
-        reviews = self._get_reviews(context.objects["query"], context.objects["freelancer_ids"])
-        job_history = self._get_job_history(context.objects["query"], context.objects["freelancer_ids"])
+        reviews = self._get_reviews(context)
+        job_history = self._get_job_history(context)
         objects = reviews + job_history
         return Results(objects=objects)
 
-    def _get_reviews(self, query: str, freelancer_ids: list[str]) -> Results:
+    def _get_reviews(self, context) -> Results:
+        freelancer_ids = [freelancer["freelancer_id"] for freelancer in context.objects["freelancers"]]
+        query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_review_umrlarge_non_nested",
             "field_to_search": "PROVIDER_COMMENT_EMBEDDINGS",
@@ -41,7 +43,9 @@ class RemoteOpenSearch(DataStore):
         sorted_results = sorted(results, key=lambda x: x["distance"])
         return sorted_results
 
-    def _get_job_history(self, query: str, freelancer_ids: list[str]) -> Results:
+    def _get_job_history(self, context) -> Results:
+        freelancer_ids = [freelancer["freelancer_id"] for freelancer in context.objects["freelancers"]]
+        query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_history_umrlarge_non_nested",
             "field_to_search": "CONCAT_POST_TITLE_DESC_EMBEDDINGS",

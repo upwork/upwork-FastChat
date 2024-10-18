@@ -23,7 +23,7 @@ class VectorSearchRetriever(Retriever):
             messages=[
                 {
                     "role": "system",
-                    "content": load_prompt("query_reformulation.txt"),
+                    "content": load_prompt("query_reformulation.txt")
                 },
                 {"role": "user", "content": full_conversation},
             ],
