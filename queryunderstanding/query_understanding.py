@@ -46,6 +46,7 @@ class QueryUnderstanding:
             messages=messages,
             objects={
                 "freelancers": freelancers,
+                "job": job,
             },
         )
         results = [
@@ -57,13 +58,14 @@ class QueryUnderstanding:
             except Exception as e:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
         result_text = "\n".join(results)
-        if summarize_results:
-            result_text = self.summarizer.summarize(result_text)
         result_text += (
             f"\n\n### Job Information\n\n"
             f"Title: {job['title']}\n\n"
             f"Description: {job['description']}"
         )
+        if summarize_results:
+            context.objects["results"] = result_text
+            result_text = self.summarizer.summarize(context)
         return result_text
 
     def _get_messages(self, conversation: Conversation) -> list[dict]:

@@ -583,19 +583,14 @@ def generate_turn(
     images = conv.get_images()
 
     if rag:
-        retrieved_data = query_understanding.search(
+        retrieved_context = query_understanding.search(
             conv,
             freelancers=freelancers,
             job=job,
             enforce_rag=rag,
             summarize_results=summarize_results,
         )
-        rag_message = f"""
-        === Context data ===
-        {retrieved_data}
-        === End of context data ===
-        """
-        conv.update_last_message(rag_message)
+        conv.update_last_message(retrieved_context)
         return
 
     if model_api_dict is None:
@@ -1013,7 +1008,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         gr.HTML(job_info_html, elem_id="job_info")
 
     # Display freelancers information in an accordion with a table
-    with gr.Accordion("👥 Freelancers", open=False):
+    with gr.Accordion("👥 Freelancers", open=True):
         freelancers_table = """
         <table style="width:100%; border-collapse: collapse;">
             <tr>
