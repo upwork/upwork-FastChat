@@ -10,14 +10,15 @@ logger = getLogger(__name__)
 
 class ToolRouter:
     def __init__(self, retrievers: dict[str, Retriever]):
-        self.swarm = Swarm()
         self.retrievers = retrievers
+        self.prompt = load_prompt("rag_router.txt").format(
+            retrievers=", ".join(self.retrievers.keys())
+        )
+        self.swarm = Swarm()
         self.selector_agent = Agent(
             name="RAG Router",
             model=RAG_ROUTER_LLM,
-            instructions=load_prompt("rag_router.txt").format(
-                retrievers=", ".join(self.retrievers.keys())
-            ),
+            instructions=self.prompt,
         )
 
     def choose(
