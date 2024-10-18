@@ -1,8 +1,8 @@
 from ..retriever import Retriever, Context, Results
 from ..data_stores import remote_opensearch
-from ..utils import load_prompt
+from ..utils import load_prompt, llm_client
 from ..config.constants import QUERY_REFORMULATION_LLM
-from openai import OpenAI
+
 
 
 class VectorSearchRetriever(Retriever):
@@ -10,7 +10,6 @@ class VectorSearchRetriever(Retriever):
 
     def __init__(self):
         self.data_store = remote_opensearch.RemoteOpenSearch()
-        self.llm = OpenAI()
 
     def retrieve(self, context: Context) -> Results:
         context.objects["query"] = self._reformulate_query(context.messages)
@@ -18,7 +17,7 @@ class VectorSearchRetriever(Retriever):
 
     def _reformulate_query(self, messages: list[dict[str, str]]) -> str:
         full_conversation = " ".join([message["content"] for message in messages])
-        response = self.llm.chat.completions.create(
+        response = llm_client.chat.completions.create(
             model=QUERY_REFORMULATION_LLM,
             messages=[
                 {

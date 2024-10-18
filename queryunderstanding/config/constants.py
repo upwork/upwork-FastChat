@@ -1,8 +1,11 @@
 # LLMs
-QUERY_REFORMULATION_LLM = "gpt-4o"
-SUMMARIZATION_LLM = "gpt-4o"
+LLM_CLIENT = "fireworks"
+QUERY_REFORMULATION_LLM = "accounts/fireworks/models/llama-v3p1-405b-instruct"
+SUMMARIZATION_LLM = "accounts/fireworks/models/llama-v3p1-405b-instruct"
+KG_LLM_MODEL = "accounts/fireworks/models/llama-v3p1-405b-instruct"
+
+# RAG Router
 RAG_ROUTER_LLM = "gpt-4o"
-KG_LLM_MODEL = "gpt-4o"
 
 
 # Knowledge Graph

@@ -1,16 +1,12 @@
-from openai import OpenAI
-
 from .config.constants import SUMMARIZATION_LLM
-from .utils import load_prompt
+from .utils import load_prompt, llm_client
+
 
 class ResultsSummarizer:
-    def __init__(self):
-        self.llm = OpenAI()
-
     def summarize(self, results: str) -> str:
         prompt_template = load_prompt("results_summarization.txt")
         prompt = prompt_template.format(results=results)
-        response = self.llm.chat.completions.create(
+        response = llm_client.chat.completions.create(
             model=SUMMARIZATION_LLM,
             messages=[
                 {

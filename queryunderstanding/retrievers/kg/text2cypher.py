@@ -3,10 +3,9 @@ import os
 import logging
 import time
 from datetime import date
-from openai import OpenAI
 
 from ...config.constants import SCHEMA, KG_LLM_MODEL
-from ...utils import load_prompt
+from ...utils import load_prompt, llm_client
 
 today = date.today()
 
@@ -14,8 +13,6 @@ today = date.today()
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
 def generate_cypher_query_from_llm(context):
@@ -31,7 +28,7 @@ def generate_cypher_query_from_llm(context):
             freelancers=context.objects["freelancers"],
             today=today,
         )
-        response = client.chat.completions.create(
+        response = llm_client.chat.completions.create(
             model=KG_LLM_MODEL,
             temperature=0.1,
             messages=[

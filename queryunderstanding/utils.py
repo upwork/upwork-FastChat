@@ -1,7 +1,24 @@
 import os
 import json
+from openai import OpenAI
+from .config.constants import LLM_CLIENT
 
 PROMPT_DIR = "config/prompts"
+
+
+def load_llm_client():
+    if LLM_CLIENT == "openai":
+        return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    elif LLM_CLIENT == "fireworks":
+        return OpenAI(
+            base_url="https://api.fireworks.ai/inference/v1",
+            api_key=os.getenv("FIREWORKS_API_KEY"),
+        )
+    else:
+        raise ValueError(f"Invalid LLM client: {LLM_CLIENT}")
+
+
+llm_client = load_llm_client()
 
 
 def load_prompt(prompt_file):
