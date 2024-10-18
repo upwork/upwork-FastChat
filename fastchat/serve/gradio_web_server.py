@@ -1010,6 +1010,13 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 show_label=False,
                 container=False,
             )
+            example_selector = gr.Dropdown(
+                visible=False,
+                interactive=True,
+                show_label=False,
+                container=False,
+            )
+        with gr.Row(elem_id="rag_selector_row"):
             rag_selector = gr.Dropdown(
                 choices=[
                     "No RAG",
@@ -1031,12 +1038,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 "\n\n".join(freelancer_info),
                 elem_id="freelancer_markdown",
             )
-            example_selector = gr.Dropdown(
-                visible=False,
-                interactive=True,
-                show_label=False,
-                container=False,
-            )
+            
 
         chatbot = gr.Chatbot(
             elem_id="chatbot",
