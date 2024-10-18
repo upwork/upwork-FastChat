@@ -1,5 +1,4 @@
 from ..retriever import Retriever, Context, Results
-from ..data_store import DataStore
 from ..data_stores import remote_opensearch
 from openai import OpenAI
 
