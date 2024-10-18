@@ -1,46 +1,21 @@
-import logging
+# LLMs
+QUERY_REFORMULATION_LLM = "gpt-4o"
+SUMMARIZER_LLM = "gpt-4o"
+RAG_ROUTER_LLM = "gpt-4o"
+KG_LLM_MODEL = "gpt-4o"
 
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-logging.info("Loading configuration from environment variables and .env file")
-
-# Load environment variables
-NEPTUNE_ENDPOINT = "docdb-cluster-instance-staging.c2bnogqj46bu.us-west-2.neptune.amazonaws.com"
+# Knowledge Graph
+# # Neptune
+NEPTUNE_ENDPOINT = (
+    "docdb-cluster-instance-staging.c2bnogqj46bu.us-west-2.neptune.amazonaws.com"
+)
 NEPTUNE_PORT = 8182
-AWS_REGION = "us-west-2"
-AWS_PROFILE = "up_stage"
-
-LLM_MODEL = "gpt-4o"
 TIMEOUT_MS = 7200000
-
-logging.info(f"Loaded Neptune endpoint: {NEPTUNE_ENDPOINT}")
-logging.info(f"Loaded timeout value: {TIMEOUT_MS} ms")
-
-# Pagination settings
-#VOLUME_THRESHOLD = 100000000000000000000000  # Volume threshold for adding pagination
 MAX_LIMIT = 5000  # Number of results per page for pagination
 
-# Example volume table mapping node labels to their respective volumes
-NODE_VOLUME_TABLE = {
-        'Proposal':	138000000,
-        'Contract':	27375095,
-        'Client':	23267863,
-        'Freelancer':	82453370,
-        'SpecializedProfile':	55428783,
-        'jobPost':	17225132,
-        'WorkHistory':	24011842,
-        'Offer':	30468404,
-        'Country':	253,
-        'City':	5046923,
-        'Skill':	14042,
-        'Category':	280,
-        'AG':	722,
-        }
-
-# Schema definition (example)
-SCHEMA =""" 
+# # Schema definition (example)
+SCHEMA = """ 
                 Contract-[has_freelancer]->Freelancer
                 Contract-[created_for_opening]->jobPost
                 Contract-[has_client]->Client

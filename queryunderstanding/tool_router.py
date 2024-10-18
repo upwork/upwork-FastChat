@@ -1,7 +1,9 @@
-from .retriever import Retriever, Context
+from .retriever import Retriever
 from swarm import Swarm, Agent
 import json
 from logging import getLogger
+from .config.constants import RAG_ROUTER_LLM
+from .utils import load_prompt
 
 logger = getLogger(__name__)
 
@@ -11,26 +13,11 @@ class ToolRouter:
         self.swarm = Swarm()
         self.retrievers = retrievers
         self.selector_agent = Agent(
-            name="Retriever Selector",
-            instructions=f"""
-            You are a helpful assistant that decides which retriever(s) to use based on the conversation.
-            Available retrievers are: {', '.join(self.retrievers.keys())}.
-            Return the retriever name(s) as a JSON list.
-
-            The vector search indices contain information about the freelancer profile, freelancer work history and past projects feedbacks.
-            The knowledge graph contains information about Upwork's database of freelancers, jobs, clients, skills, etc.
-
-            Examples:
-            - How many active contracts does X have? -> ["Knowledge Graph"]
-            - How many of the person's previous jobs needed GenAI skills? -> ["Knowledge Graph"]
-            - What database work experience does this person have? -> ["Vector Search", "Knowledge Graph"]
-            - What do customers have to say about their communication skills? -> ["Vector Search"]
-            - "What are the top 3 categories at Upwork?" -> ["Knowledge Graph"]
-            - "Does this freelancer know about AI?" -> ["Vector Search"]
-            - "List the pros and cons of this freelancer's profile." -> ["Vector Search"]
-            - "How many jobs have this freelancer done in the last 3 months?" -> ["Knowledge Graph"]
-            - "What were the top 3 projects this freelancer worked on?" -> ["Vector Search", "Knowledge Graph"]
-""",
+            name="RAG Router",
+            model=RAG_ROUTER_LLM,
+            instructions=load_prompt("rag_router.txt").format(
+                retrievers=", ".join(self.retrievers.keys())
+            ),
         )
 
     def choose(

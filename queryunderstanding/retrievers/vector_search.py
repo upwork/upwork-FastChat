@@ -1,5 +1,7 @@
 from ..retriever import Retriever, Context, Results
 from ..data_stores import remote_opensearch
+from ..utils import load_prompt
+from ..config.constants import QUERY_REFORMULATION_LLM
 from openai import OpenAI
 
 
@@ -17,11 +19,11 @@ class VectorSearchRetriever(Retriever):
     def _reformulate_query(self, messages: list[dict[str, str]]) -> str:
         full_conversation = " ".join([message["content"] for message in messages])
         response = self.llm.chat.completions.create(
-            model="gpt-4o",
+            model=QUERY_REFORMULATION_LLM,
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful assistant that reformulates the user's query into a more specific and focused query for a vector search.",
+                    "content": load_prompt("query_reformulation.txt"),
                 },
                 {"role": "user", "content": full_conversation},
             ],

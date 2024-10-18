@@ -1,38 +1,17 @@
 from openai import OpenAI
 
+from ..config.constants import SUMMARIZATION_LLM
+from ..utils import load_prompt
 
 class ResultsSummarizer:
     def __init__(self):
         self.llm = OpenAI()
 
     def summarize(self, results: str) -> str:
-        prompt = f"""
-        Results are python objects retrieved from databases. Summarize the results in a concise manner to inform downstream processing.
-
-        First provide the list of data sources that were used to retrieve the results, like:
-        'Using Knowledge Graph and Vector Search.'
-        or
-        'Using Knowledge Graph.'
-        or
-        'Using Vector Search.'
-        or
-        'Not using any RAG.'
-
-        Then summarize the results in a concise manner, like:
-        ======= Knowledge Graph Results =======
-            - Result 1
-            - Result 2
-        ======= Vector Search Results =======
-            - Result 1
-            - Result 2
-        Don't include results if they are not present (i.e. if a retriever returns an empty list, don't mention it).
-        Keep it short and concise, you don't need to provide explanations, just reformat the results in a readable manner.
-
-        Here are the results:
-        {results}
-        """
+        prompt_template = load_prompt("results_summarization.txt")
+        prompt = prompt_template.format(results=results)
         response = self.llm.chat.completions.create(
-            model="gpt-4o",
+            model=SUMMARIZATION_LLM,
             messages=[
                 {
                     "role": "system",

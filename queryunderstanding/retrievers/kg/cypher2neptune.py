@@ -5,7 +5,7 @@ import time
 
 import requests
 
-from .config import MAX_LIMIT, NEPTUNE_ENDPOINT, NEPTUNE_PORT, TIMEOUT_MS
+from ...config.constants import MAX_LIMIT, NEPTUNE_ENDPOINT, NEPTUNE_PORT, TIMEOUT_MS
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
