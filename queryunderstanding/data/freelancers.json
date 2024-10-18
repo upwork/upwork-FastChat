@@ -1,7 +1,17 @@
 [
   {
-    "name": "John Doe",
+    "name": "Geoffrey Hinton",
     "url": "www.google.com",
-    "freelancer_id": "1234567890"
+    "person_id": "1793350198801477632"
+  },
+  {
+    "name": "Yann LeCun",
+    "url": "www.google.com",
+    "person_id": "1793350198801477632"
+  },
+  {
+    "name": "Yoshua Bengio",
+    "url": "www.google.com",
+    "person_id": "1793350198801477632"
   }
 ]

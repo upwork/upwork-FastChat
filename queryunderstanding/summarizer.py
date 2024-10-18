@@ -1,7 +1,7 @@
 from openai import OpenAI
 
-from ..config.constants import SUMMARIZATION_LLM
-from ..utils import load_prompt
+from .config.constants import SUMMARIZATION_LLM
+from .utils import load_prompt
 
 class ResultsSummarizer:
     def __init__(self):

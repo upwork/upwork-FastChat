@@ -1,7 +1,7 @@
 import os
 import json
 
-PROMPT_DIR = "queryunderstanding/config/prompts"
+PROMPT_DIR = "config/prompts"
 
 
 def load_prompt(prompt_file):

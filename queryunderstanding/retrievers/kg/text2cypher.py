@@ -18,7 +18,7 @@ logging.basicConfig(
 client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
 
-def create_cypher_query(context):
+def generate_cypher_query_from_llm(context):
     logging.info(f"Generating Cypher query using LLM: {KG_LLM_MODEL}")
 
     start_time = time.time()

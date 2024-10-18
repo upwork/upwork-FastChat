@@ -20,7 +20,7 @@ class RemoteOpenSearch(DataStore):
         return Results(objects=objects)
 
     def _get_reviews(self, context) -> Results:
-        freelancer_ids = [freelancer["freelancer_id"] for freelancer in context.objects["freelancers"]]
+        freelancer_ids = [freelancer["person_id"] for freelancer in context.objects["freelancers"]]
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_review_umrlarge_non_nested",
@@ -32,7 +32,6 @@ class RemoteOpenSearch(DataStore):
             "query": query,
         }
         response = self._make_request(payload)
-        logger.info(f"Reviews: {response}")
         results = [
             {
                 "content": response["source_document"]["PROVIDER_COMMENT"],
@@ -44,7 +43,7 @@ class RemoteOpenSearch(DataStore):
         return sorted_results
 
     def _get_job_history(self, context) -> Results:
-        freelancer_ids = [freelancer["freelancer_id"] for freelancer in context.objects["freelancers"]]
+        freelancer_ids = [freelancer["person_id"] for freelancer in context.objects["freelancers"]]
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_history_umrlarge_non_nested",
@@ -56,7 +55,6 @@ class RemoteOpenSearch(DataStore):
             "query": query,
         }
         response = self._make_request(payload)
-        logger.info(f"Job History: {response}")
         results = [
             {
                 "content": response["source_document"]["CONCAT_POST_TITLE_DESC"],
