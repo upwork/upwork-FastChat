@@ -1111,7 +1111,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             label="Max output tokens",
         )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
-        summarize_results = gr.Checkbox(value=True, label="Summarize results")
+        summarize_results = gr.Checkbox(value=False, label="Summarize results")
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
