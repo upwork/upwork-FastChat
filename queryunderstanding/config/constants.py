@@ -8,7 +8,7 @@ KG_LLM_MODEL = "gpt-4o"
 # Knowledge Graph
 # # Neptune
 NEPTUNE_ENDPOINT = (
-    "docdb-cluster-instance-staging.c2bnogqj46bu.us-west-2.neptune.amazonaws.com"
+    "neptune-cluster-staging.cluster-ro-c2bnogqj46bu.us-west-2.neptune.amazonaws.com"
 )
 NEPTUNE_PORT = 8182
 TIMEOUT_MS = 7200000
