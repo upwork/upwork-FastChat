@@ -997,7 +997,6 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     share_str = gr.Textbox(visible=False)
     gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
-    # Display job information in an accordion with formatted HTML
     with gr.Accordion("📄 Job Information", open=True):
         job_info_html = f"""
         <div style="padding: 10px;">
@@ -1007,7 +1006,6 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         """
         gr.HTML(job_info_html, elem_id="job_info")
 
-    # Display freelancers information in an accordion with a table
     with gr.Accordion("👥 Freelancers", open=True):
         freelancers_table = """
         <table style="width:100%; border-collapse: collapse;">
