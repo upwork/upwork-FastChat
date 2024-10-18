@@ -21,3 +21,6 @@ Keep it short and concise, you don't need to provide explanations, just reformat
 
 Here are the results:
 {results}
+
+And the original job post is:
+{job}
