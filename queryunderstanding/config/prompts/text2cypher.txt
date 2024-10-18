@@ -1,0 +1,60 @@
+Task: Generate an openCypher statement to query a graph database based on the user question.
+Instructions: Based on the graph schema provided, generate a concise and efficient Cypher query.
+
+Guidelines:
+- Make sure you follow openCypher syntax.
+- Keep queries as simple as possible to avoid issues.
+- Use the provided relationship types and properties from the schema and ensure correct edge direction.
+- When using ids or labels, treat them as strings with ''.
+- You cannot use aggregates inside aggregates.
+- Try to avoid aggregates if possible.
+- Avoid using collect and similar keywords.
+- Ensure that filtering is done using WHERE clauses, and avoid using filters inside node patterns.
+- Return only the query, no comments, no explanations, no punctuation of any kind. No '''cypher, no '''.
+- Structure the query with MATCH statements to traverse the graph.
+- Only return what is asked. If edges are requested, only return them. If nodes are requested, only return nodes.
+- All sub-queries in a UNION must have the same column names.
+- For generic queries like outgoing/incoming edges, keep it generic.
+    - Outgoing: MATCH (n {{id: 'Node'}})-[r]->(m) RETURN DISTINCT type(r)
+    - Incoming: MATCH (m)-[r]->(n {{id: 'Node'}}) RETURN DISTINCT type(r)
+- Keep queries as simple as possible.
+- For creation time, job posts have `ctime`, freelancers have `creation_date`.
+- **Always** use multi-match clauses with intermediate WITH statements instead of paths longer than 2 hops. For example:    ```
+    MATCH (c:Category)
+    WHERE c.pref_label = 'Graphic Design'
+    WITH c
+    MATCH (sp:SpecializedProfile)-[:has_category]->(c)
+    WITH sp, c
+    MATCH (f:Freelancer)-[:has_profile]->(sp)    ```
+    Instead of:    ```
+    MATCH (f:Freelancer)-[:has_profile]->(sp:SpecializedProfile)-[:has_category]->(c:Category)
+    WHERE c.pref_label = 'Graphic Design'    ```
+    Start from the smaller set and break every query with more than one step.
+    - E.g., `MATCH (a:a)-[r1]->(b:b)-[r2]->(c:c)` should be:        ```
+        MATCH (a:a)-[r1]->(b:b)
+        WITH a, b
+        MATCH (b)-[r2]->(c:c)        ```
+    - Ensure each MATCH clause only has 2 steps `(a)-[b]->(c)`.
+- Categories are organized into a taxonomy through relationships `has_child`, `has_parent`.
+- Category taxonomy levels are defined via `taxonomy_level` property (`CATEGORY`, `SUBCATEGORY`, `SERVICE`).
+- The business jargon for these levels is CATEGORY=L1, SUBCATEGORY=L2, SERVICE=L3.
+- Skills are linked to categories (L3) through AGs: `(Skill)-[belongs_to_ag]->(AG)`, `(AG)<-[related_ag]-(Category)`.
+- If a summary of an entity is requested, provide a short summary of key points and check 1-hop edges for more information.
+- When dealing with dates, use `datetime()` only for string literals, not variables. Example: `c.date > datetime("2020-01-01T00:00:00")`. Do not use `datetime()` in other elements like `epochMillis`.
+- When dealing with duration (e.g., within 5 days), convert date properties to `epochMillis(f.date)` instead of using `duration.between(datetime(f.date), ...)`.
+- Avoid using `duration()` and other date-related functions.
+- Avoid using `head` keyword.
+- Property access over temporal types is not supported.
+- When comparing entities to check if they are different (`<>`), use a property like `uid` and not the full node. E.g., `a.uid <> b.uid` instead of `a <> b`.
+- If you need to perform date calculations, today is `{today}`.
+
+### Schema
+{schema}
+
+### User Question
+The user asks:
+{messages}
+
+### Freelancer
+Use the freelancer ID to identify the freelancer in the queries
+{freelancers}

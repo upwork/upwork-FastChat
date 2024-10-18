@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
-from data_store import DataStore
 from dataclasses import dataclass
+
+from .data_store import DataStore
 
 
 @dataclass
 class Context:
     messages: list[dict]
-    objects: list[dict]  # Query, Freelancer Id, Job, etc.
+    objects: dict  # Query, Freelancer Id, Job, etc.
 
 
 @dataclass
@@ -15,7 +16,7 @@ class Results:
 
 
 class Retriever(ABC):
-    def __init__(self, data_store: DataStore):
+    def __init__(self, data_store: DataStore = None):
         self.data_store = data_store
 
     @abstractmethod

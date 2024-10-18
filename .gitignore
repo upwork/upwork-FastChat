@@ -34,3 +34,9 @@ build
 serve_images
 val2014
 vqa_examples
+
+# Environment
+.env
+
+# Data files
+!queryunderstanding/data/freelancers.json

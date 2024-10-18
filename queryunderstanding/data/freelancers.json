@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Geoffrey Hinton",
+    "title": "Professor of AI",
+    "url": "www.google.com",
+    "person_id": "1793350198801477632"
+  },
+  {
+    "name": "Yann LeCun",
+    "title": "Professor of Computer Vision",
+    "url": "www.google.com",
+    "person_id": "1793350198801477632"
+  },
+  {
+    "name": "Yoshua Bengio",
+    "title": "Professor of NLP",
+    "url": "www.google.com",
+    "person_id": "1793350198801477632"
+  }
+]
