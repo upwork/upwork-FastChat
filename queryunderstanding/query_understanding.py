@@ -27,6 +27,7 @@ class QueryUnderstanding:
         conversation: Conversation,
         summarize_results: bool,
         freelancers: list[dict[str, str]],
+        job: dict[str, str],
         enforce_rag: str | None = None,
     ) -> str:
         """
@@ -58,6 +59,11 @@ class QueryUnderstanding:
         result_text = "\n".join(results)
         if summarize_results:
             result_text = self.summarizer.summarize(result_text)
+        result_text += (
+            f"\n\n### Job Information\n\n"
+            f"Title: {job['title']}\n\n"
+            f"Description: {job['description']}"
+        )
         return result_text
 
     def _get_messages(self, conversation: Conversation) -> list[dict]:
