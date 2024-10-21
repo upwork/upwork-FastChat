@@ -48,7 +48,6 @@ from fastchat.utils import (
     load_image,
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
-from queryunderstanding.utils import load_freelancers, load_job
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -984,8 +983,9 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
 
     # Load RAG examples
     rag_examples = load_rag_examples()
-    rag_examples_names = [load_rag_example(example_name)[0]["title"] for example_name in rag_examples]
-    rag_examples_mapping = {name: example_name for name, example_name in zip(rag_examples_names, rag_examples)}
+    rag_examples_names = ["No Example"] + [load_rag_example(example_name)[0]["title"] for example_name in rag_examples]
+    rag_examples_mapping = {"No Example": None}
+    rag_examples_mapping.update({name: example_name for name, example_name in zip(rag_examples_names[1:], rag_examples)})
 
     # Create state variables for job and freelancers
     job_state = gr.State()
@@ -998,8 +998,15 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         freelancer_list_component = gr.HTML("", elem_id="freelancer_list")
 
     # Initialize the default example
-    initial_job, initial_freelancers = load_rag_example(rag_examples[0] if rag_examples else "")
-    job_info_html, freelancer_list_html = update_rag_example_display(initial_job, initial_freelancers)
+    initial_example_name = rag_examples_names[0]
+    if initial_example_name == "No Example":
+        initial_job = {}
+        initial_freelancers = []
+        job_info_html = ""
+        freelancer_list_html = ""
+    else:
+        initial_job, initial_freelancers = load_rag_example(rag_examples_mapping[initial_example_name])
+        job_info_html, freelancer_list_html = update_rag_example_display(initial_job, initial_freelancers)
     job_info_html_component.value = job_info_html
     freelancer_list_component.value = freelancer_list_html
 
@@ -1038,7 +1045,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             )
             rag_example_selector = gr.Dropdown(
                 choices=rag_examples_names,
-                value=rag_examples_names[0] if len(rag_examples_names) > 0 else "",
+                value=rag_examples_names[0],
                 label="RAG Examples",
                 interactive=True,
                 show_label=True,
@@ -1250,11 +1257,16 @@ function copy(share_str) {
 
     # Register event listener for RAG example changes
     def on_rag_example_change(example_name):
-        example_name = rag_examples_mapping[example_name]
-        job, freelancers = load_rag_example(example_name)
-        job_info_html, freelancer_list_html = update_rag_example_display(job, freelancers)
+        if example_name == "No Example":
+            job_info_html = ""
+            freelancer_list_html = ""
+            job = {}
+            freelancers = []
+        else:
+            example_name = rag_examples_mapping[example_name]
+            job, freelancers = load_rag_example(example_name)
+            job_info_html, freelancer_list_html = update_rag_example_display(job, freelancers)
         return job_info_html, freelancer_list_html, job, freelancers
-
 
     rag_example_selector.change(
         on_rag_example_change,
