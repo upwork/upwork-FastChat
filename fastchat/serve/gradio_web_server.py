@@ -835,7 +835,7 @@ def bot_response(
         role=state.conv.roles[1],
         temperature=temperature,
         top_p=top_p,
-        max_new_tokens=max_output_tokens,
+        max_new_tokens=max_new_tokens,
         request=request,
         use_recommended_config=use_recommended_config,
     )
