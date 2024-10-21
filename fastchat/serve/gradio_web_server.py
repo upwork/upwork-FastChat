@@ -936,6 +936,54 @@ a:hover {
 """
 
 
+def load_rag_examples():
+    examples = []
+    examples_dir = "queryunderstanding/data/"
+    for filename in os.listdir(examples_dir):
+        if filename.endswith(".json"):
+            example_name = os.path.splitext(filename)[0]
+            examples.append(example_name)
+    return examples
+
+
+def load_rag_example(example_name):
+    examples_dir = "queryunderstanding/data/"
+    filename = os.path.join(examples_dir, f"{example_name}.json")
+    with open(filename, "r") as f:
+        data = json.load(f)
+    job = data.get("job", {})
+    freelancers = data.get("freelancers", [])
+    return job, freelancers
+
+
+def update_rag_example(rag_example_name):
+    job, freelancers = load_rag_example(rag_example_name)
+    job_info_html = f"""
+    <div style="padding: 10px;">
+        <h3>{job['title']}</h3>
+        <p>{job.get('description', '')}</p>
+    </div>
+    """
+    freelancers_table = """
+    <table style="width:100%; border-collapse: collapse;">
+        <tr>
+            <th style="text-align: left; padding: 8px;">Name</th>
+            <th style="text-align: left; padding: 8px;">Title</th>
+            <th style="text-align: left; padding: 8px;">Profile</th>
+        </tr>
+    """
+    for freelancer in freelancers:
+        freelancers_table += f"""
+        <tr>
+            <td style="padding: 8px;">{freelancer['name']}</td>
+            <td style="padding: 8px;">{freelancer['title']}</td>
+            <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
+        </tr>
+        """
+    freelancers_table += "</table>"
+    return job_info_html, freelancers_table
+
+
 def build_about():
     about_markdown = """
 # About Us
@@ -997,34 +1045,35 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     share_str = gr.Textbox(visible=False)
     gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
+    rag_examples = load_rag_examples()
+
+    with gr.Row():
+        model_selector = gr.Dropdown(
+            choices=models,
+            value=models[0] if len(models) > 0 else "",
+            interactive=True,
+            show_label=False,
+            container=False,
+        )
+        example_selector = gr.Dropdown(
+            visible=False,
+            interactive=True,
+            show_label=False,
+            container=False,
+        )
+
     with gr.Accordion("📄 Job Information", open=True):
-        job_info_html = f"""
-        <div style="padding: 10px;">
-            <h3>{job['title']}</h3>
-            <p>{job['description']}</p>
-        </div>
-        """
-        gr.HTML(job_info_html, elem_id="job_info")
+        job_info_html_component = gr.HTML("", elem_id="job_info")
 
     with gr.Accordion("👥 Freelancers", open=True):
-        freelancers_table = """
-        <table style="width:100%; border-collapse: collapse;">
-            <tr>
-                <th style="text-align: left; padding: 8px;">Name</th>
-                <th style="text-align: left; padding: 8px;">Title</th>
-                <th style="text-align: left; padding: 8px;">Profile</th>
-            </tr>
-        """
-        for freelancer in freelancers:
-            freelancers_table += f"""
-            <tr>
-                <td style="padding: 8px;">{freelancer['name']}</td>
-                <td style="padding: 8px;">{freelancer['title']}</td>
-                <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
-            </tr>
-            """
-        freelancers_table += "</table>"
-        gr.HTML(freelancers_table, elem_id="freelancer_list")
+        freelancer_list_component = gr.HTML("", elem_id="freelancer_list")
+
+    # Initialize the default example
+    initial_job_info_html, initial_freelancers_table = update_rag_example(
+        rag_examples[0]
+    )
+    job_info_html_component.value = initial_job_info_html
+    freelancer_list_component.value = initial_freelancers_table
 
     with gr.Group(elem_id="share-region-named"):
         with gr.Row(elem_id="model_selector_row"):
@@ -1053,6 +1102,14 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 value="Context-Aware",
                 interactive=True,
                 show_label=False,
+                container=False,
+            )
+            rag_example_selector = gr.Dropdown(
+                choices=rag_examples,
+                value=rag_examples[0] if len(rag_examples) > 0 else "",
+                label="RAG Examples",
+                interactive=True,
+                show_label=True,
                 container=False,
             )
         chatbot = gr.Chatbot(
@@ -1226,6 +1283,11 @@ function copy(share_str) {
             summarize_results,
         ],
         [state, chatbot] + btn_list,
+    )
+    rag_example_selector.change(
+        update_rag_example,
+        inputs=[rag_example_selector],
+        outputs=[job_info_html_component, freelancer_list_component],
     )
 
     url_params = gr.JSON(visible=False)
