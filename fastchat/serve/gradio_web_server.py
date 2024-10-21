@@ -766,7 +766,7 @@ def bot_response(
     state,
     temperature,
     top_p,
-    max_output_tokens,
+    max_new_tokens,
     generate_thoughts,
     rag_selector,
     summarize_results,
@@ -780,7 +780,7 @@ def bot_response(
     logger.info(f"bot_response. ip: {ip}")
     temperature = float(temperature)
     top_p = float(top_p)
-    max_output_tokens = int(max_output_tokens)
+    max_new_tokens = int(max_new_tokens)
 
     if state.skip_next:
         # This generate call is skipped due to invalid inputs
@@ -804,7 +804,7 @@ def bot_response(
             role=state.conv.roles[3],
             temperature=temperature,
             top_p=top_p,
-            max_new_tokens=max_output_tokens,
+            max_new_tokens=max_new_tokens,
             request=request,
             use_recommended_config=use_recommended_config,
             rag=rag_selector,
@@ -825,7 +825,7 @@ def bot_response(
             role=state.conv.roles[2],
             temperature=temperature,
             top_p=top_p,
-            max_new_tokens=max_output_tokens,
+            max_new_tokens=max_new_tokens,
             request=request,
             use_recommended_config=use_recommended_config,
         )
@@ -951,6 +951,41 @@ a:hover {
 """
 
 
+def build_about():
+    about_markdown = """
+# About Us
+Chatbot Arena is an open-source research project developed by members from [LMSYS](https://lmsys.org) and UC Berkeley [SkyLab](https://sky.cs.berkeley.edu/). Our mission is to build an open platform to evaluate LLMs by human preference in the real-world.
+We open-source our [FastChat](https://github.com/lm-sys/FastChat) project at GitHub and release chat and human feedback dataset. We invite everyone to join us!
+## Arena Core Team
+- [Lianmin Zheng](https://lmzheng.net/) (co-lead), [Wei-Lin Chiang](https://infwinston.github.io/) (co-lead), [Ying Sheng](https://sites.google.com/view/yingsheng/home), [Joseph E. Gonzalez](https://people.eecs.berkeley.edu/~jegonzal/), [Ion Stoica](http://people.eecs.berkeley.edu/~istoica/)
+## Past Members
+- [Siyuan Zhuang](https://scholar.google.com/citations?user=KSZmI5EAAAAJ), [Hao Zhang](https://cseweb.ucsd.edu/~haozhang/)
+## Learn more
+- Chatbot Arena [paper](https://arxiv.org/abs/2403.04132), [launch blog](https://lmsys.org/blog/2023-05-03-arena/), [dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md), [policy](https://lmsys.org/blog/2024-03-01-policy/)
+- LMSYS-Chat-1M dataset [paper](https://arxiv.org/abs/2309.11998), LLM Judge [paper](https://arxiv.org/abs/2306.05685)
+
+## Contact Us
+- Follow our [X](https://x.com/lmsysorg), [Discord](https://discord.gg/HSWAKCrnFx) or email us at lmsys.org@gmail.com
+- File issues on [GitHub](https://github.com/lm-sys/FastChat)
+- Download our datasets and models on [HuggingFace](https://huggingface.co/lmsys)
+
+## Acknowledgment
+We thank [SkyPilot](https://github.com/skypilot-org/skypilot) and [Gradio](https://github.com/gradio-app/gradio) team for their system support.
+We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https://www.kaggle.com/), [MBZUAI](https://mbzuai.ac.ae/), [a16z](https://www.a16z.com/), [Together AI](https://www.together.ai/), [Hyperbolic](https://hyperbolic.xyz/), [Anyscale](https://www.anyscale.com/), [HuggingFace](https://huggingface.co/) for their generous sponsorship. Learn more about partnership [here](https://lmsys.org/donations/).
+<div class="sponsor-image-about">
+    <img src="https://storage.googleapis.com/public-arena-asset/skylab.png" alt="SkyLab">
+    <img src="https://storage.googleapis.com/public-arena-asset/kaggle.png" alt="Kaggle">
+    <img src="https://storage.googleapis.com/public-arena-asset/mbzuai.jpeg" alt="MBZUAI">
+    <img src="https://storage.googleapis.com/public-arena-asset/a16z.jpeg" alt="a16z">
+    <img src="https://storage.googleapis.com/public-arena-asset/together.png" alt="Together AI">
+    <img src="https://storage.googleapis.com/public-arena-asset/hyperbolic_logo.png" alt="Hyperbolic">
+    <img src="https://storage.googleapis.com/public-arena-asset/anyscale.png" alt="AnyScale">
+    <img src="https://storage.googleapis.com/public-arena-asset/huggingface.png" alt="HuggingFace">
+</div>
+"""
+    gr.Markdown(about_markdown, elem_id="about_markdown")
+
+
 def load_rag_examples():
     examples = []
     examples_dir = "queryunderstanding/data/"
@@ -995,9 +1030,16 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
 
     # Load RAG examples
     rag_examples = load_rag_examples()
-    rag_examples_names = ["No Example"] + [load_rag_example(example_name)[0]["title"] for example_name in rag_examples]
+    rag_examples_names = ["No Example"] + [
+        load_rag_example(example_name)[0]["title"] for example_name in rag_examples
+    ]
     rag_examples_mapping = {"No Example": None}
-    rag_examples_mapping.update({name: example_name for name, example_name in zip(rag_examples_names[1:], rag_examples)})
+    rag_examples_mapping.update(
+        {
+            name: example_name
+            for name, example_name in zip(rag_examples_names[1:], rag_examples)
+        }
+    )
 
     # Create state variables for job and freelancers
     job_state = gr.State()
@@ -1017,8 +1059,12 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         job_info_html = ""
         freelancer_list_html = ""
     else:
-        initial_job, initial_freelancers = load_rag_example(rag_examples_mapping[initial_example_name])
-        job_info_html, freelancer_list_html = update_rag_example_display(initial_job, initial_freelancers)
+        initial_job, initial_freelancers = load_rag_example(
+            rag_examples_mapping[initial_example_name]
+        )
+        job_info_html, freelancer_list_html = update_rag_example_display(
+            initial_job, initial_freelancers
+        )
     job_info_html_component.value = job_info_html
     freelancer_list_component.value = freelancer_list_html
 
@@ -1287,7 +1333,9 @@ function copy(share_str) {
         else:
             example_name = rag_examples_mapping[example_name]
             job, freelancers = load_rag_example(example_name)
-            job_info_html, freelancer_list_html = update_rag_example_display(job, freelancers)
+            job_info_html, freelancer_list_html = update_rag_example_display(
+                job, freelancers
+            )
         return job_info_html, freelancer_list_html, job, freelancers
 
     rag_example_selector.change(
@@ -1302,6 +1350,7 @@ function copy(share_str) {
     )
 
     return [state, model_selector]
+
 
 def update_rag_example_display(job, freelancers):
     job_info_html = f"""
@@ -1328,6 +1377,7 @@ def update_rag_example_display(job, freelancers):
         """
     freelancers_table += "</table>"
     return job_info_html, freelancers_table
+
 
 def build_demo(models):
     if args.model_list_mode not in ["once", "reload"]:

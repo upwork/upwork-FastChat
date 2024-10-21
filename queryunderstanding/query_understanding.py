@@ -7,7 +7,6 @@ from .retriever import Context, Results, Retriever
 from .retrievers import knowledge_graph, vector_search
 from .summarizer import ResultsSummarizer
 from .tool_router import ToolRouter
-from .retrievers.kg.cypher2neptune import process_cypher_query
 
 logger = getLogger(__name__)
 
@@ -140,11 +139,3 @@ class QueryUnderstanding:
             freelancer_info.append(f"Name: {freelancer['name']}\n")
             freelancer_info.append(f"Title: {freelancer['title']}\n")
         return f"\n\n### Freelancer Information\n\nFreelancers:\n{freelancer_info}"
-
-    def _get_freelancer_description(self, freelancer: dict[str, str]) -> str:
-        """
-        Gets the description of the freelancer.
-        """
-        cypher = f"MATCH (f:Freelancer {{uid: '{freelancer['person_id']}'}}) RETURN f.description"
-        result = process_cypher_query(cypher)
-        return result[0]["f.description"]
