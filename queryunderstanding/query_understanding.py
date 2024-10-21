@@ -7,6 +7,7 @@ from .retriever import Context, Results, Retriever
 from .retrievers import knowledge_graph, vector_search
 from .summarizer import ResultsSummarizer
 from .tool_router import ToolRouter
+from .utils import load_prompt
 
 logger = getLogger(__name__)
 
@@ -63,6 +64,7 @@ class QueryUnderstanding:
         if summarize_results:
             context.objects["results"] = result_text
             result_text = self.summarizer.summarize(context)
+        result_text += self._enforce_rag_instruction()
         return result_text
 
     def _get_messages(self, conversation: Conversation) -> list[dict]:
@@ -139,3 +141,9 @@ class QueryUnderstanding:
             freelancer_info.append(f"Name: {freelancer['name']}\n")
             freelancer_info.append(f"Title: {freelancer['title']}\n")
         return f"\n\n### Freelancer Information\n\nFreelancers:\n{freelancer_info}"
+
+    def _enforce_rag_instruction(self) -> str:
+        """
+        Enforces the RAG instruction.
+        """
+        return "\n\n" + load_prompt("enforce_rag_instruction.txt")

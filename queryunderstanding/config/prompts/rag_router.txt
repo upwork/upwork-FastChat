@@ -7,7 +7,7 @@ The knowledge graph contains information about Upwork's database of freelancers,
 
 Examples:
 - How many active contracts does X have? -> ["Knowledge Graph"]
-- How many of the person's previous jobs needed GenAI skills? -> ["Knowledge Graph"]
+- How many of the person's previous jobs needed GenAI skills? -> ["Vector Search", "Knowledge Graph"]
 - What database work experience does this person have? -> ["Vector Search", "Knowledge Graph"]
 - What do customers have to say about their communication skills? -> ["Vector Search"]
 - "What are the top 3 categories at Upwork?" -> ["Knowledge Graph"]
