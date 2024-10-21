@@ -1,0 +1,2 @@
+You must ground your answer on the data retrieved.
+When generating thoughts, add another line that shortly provides insights from the data retrieved with respect to the original question.
