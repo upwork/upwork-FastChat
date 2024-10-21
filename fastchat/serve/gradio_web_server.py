@@ -58,8 +58,6 @@ no_change_btn = gr.Button()
 enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
 
-freelancers: list[dict[str, str]] = load_freelancers()
-job: dict[str, str] = load_job()
 query_understanding = QueryUnderstanding()
 
 controller_url = None
@@ -575,6 +573,8 @@ def generate_turn(
     use_recommended_config=False,
     rag=None,
     summarize_results=False,
+    job_state=None,
+    freelancers_state=None,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -585,8 +585,8 @@ def generate_turn(
     if rag:
         retrieved_context = query_understanding.search(
             conv,
-            freelancers=freelancers,
-            job=job,
+            freelancers=freelancers_state,
+            job=job_state,
             enforce_rag=rag,
             summarize_results=summarize_results,
         )
@@ -755,10 +755,12 @@ def bot_response(
     state,
     temperature,
     top_p,
-    max_new_tokens,
+    max_output_tokens,
     generate_thoughts,
-    rag,
+    rag_selector,
     summarize_results,
+    job_state,
+    freelancers_state,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -767,7 +769,7 @@ def bot_response(
     logger.info(f"bot_response. ip: {ip}")
     temperature = float(temperature)
     top_p = float(top_p)
-    max_new_tokens = int(max_new_tokens)
+    max_output_tokens = int(max_output_tokens)
 
     if state.skip_next:
         # This generate call is skipped due to invalid inputs
@@ -784,18 +786,20 @@ def bot_response(
             yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 6
             return
 
-    logger.info(f"RAG: {rag}")
-    if rag != "No RAG":
+    logger.info(f"RAG: {rag_selector}")
+    if rag_selector != "No RAG":
         yield from generate_turn(
             state,
             role=state.conv.roles[3],
             temperature=temperature,
             top_p=top_p,
-            max_new_tokens=max_new_tokens,
+            max_new_tokens=max_output_tokens,
             request=request,
             use_recommended_config=use_recommended_config,
-            rag=rag,
+            rag=rag_selector,
             summarize_results=summarize_results,
+            job_state=job_state,
+            freelancers_state=freelancers_state,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -810,7 +814,7 @@ def bot_response(
             role=state.conv.roles[2],
             temperature=temperature,
             top_p=top_p,
-            max_new_tokens=max_new_tokens,
+            max_new_tokens=max_output_tokens,
             request=request,
             use_recommended_config=use_recommended_config,
         )
@@ -820,7 +824,7 @@ def bot_response(
         role=state.conv.roles[1],
         temperature=temperature,
         top_p=top_p,
-        max_new_tokens=max_new_tokens,
+        max_new_tokens=max_output_tokens,
         request=request,
         use_recommended_config=use_recommended_config,
     )
@@ -956,73 +960,6 @@ def load_rag_example(example_name):
     return job, freelancers
 
 
-def update_rag_example(rag_example_name):
-    job, freelancers = load_rag_example(rag_example_name)
-    job_info_html = f"""
-    <div style="padding: 10px;">
-        <h3>{job['title']}</h3>
-        <p>{job.get('description', '')}</p>
-    </div>
-    """
-    freelancers_table = """
-    <table style="width:100%; border-collapse: collapse;">
-        <tr>
-            <th style="text-align: left; padding: 8px;">Name</th>
-            <th style="text-align: left; padding: 8px;">Title</th>
-            <th style="text-align: left; padding: 8px;">Profile</th>
-        </tr>
-    """
-    for freelancer in freelancers:
-        freelancers_table += f"""
-        <tr>
-            <td style="padding: 8px;">{freelancer['name']}</td>
-            <td style="padding: 8px;">{freelancer['title']}</td>
-            <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
-        </tr>
-        """
-    freelancers_table += "</table>"
-    return job_info_html, freelancers_table
-
-
-def build_about():
-    about_markdown = """
-# About Us
-Chatbot Arena is an open-source research project developed by members from [LMSYS](https://lmsys.org) and UC Berkeley [SkyLab](https://sky.cs.berkeley.edu/). Our mission is to build an open platform to evaluate LLMs by human preference in the real-world.
-We open-source our [FastChat](https://github.com/lm-sys/FastChat) project at GitHub and release chat and human feedback dataset. We invite everyone to join us!
-
-## Arena Core Team
-- [Lianmin Zheng](https://lmzheng.net/) (co-lead), [Wei-Lin Chiang](https://infwinston.github.io/) (co-lead), [Ying Sheng](https://sites.google.com/view/yingsheng/home), [Joseph E. Gonzalez](https://people.eecs.berkeley.edu/~jegonzal/), [Ion Stoica](http://people.eecs.berkeley.edu/~istoica/)
-
-## Past Members
-- [Siyuan Zhuang](https://scholar.google.com/citations?user=KSZmI5EAAAAJ), [Hao Zhang](https://cseweb.ucsd.edu/~haozhang/)
-
-## Learn more
-- Chatbot Arena [paper](https://arxiv.org/abs/2403.04132), [launch blog](https://lmsys.org/blog/2023-05-03-arena/), [dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md), [policy](https://lmsys.org/blog/2024-03-01-policy/)
-- LMSYS-Chat-1M dataset [paper](https://arxiv.org/abs/2309.11998), LLM Judge [paper](https://arxiv.org/abs/2306.05685)
-
-## Contact Us
-- Follow our [X](https://x.com/lmsysorg), [Discord](https://discord.gg/HSWAKCrnFx) or email us at lmsys.org@gmail.com
-- File issues on [GitHub](https://github.com/lm-sys/FastChat)
-- Download our datasets and models on [HuggingFace](https://huggingface.co/lmsys)
-
-## Acknowledgment
-We thank [SkyPilot](https://github.com/skypilot-org/skypilot) and [Gradio](https://github.com/gradio-app/gradio) team for their system support.
-We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https://www.kaggle.com/), [MBZUAI](https://mbzuai.ac.ae/), [a16z](https://www.a16z.com/), [Together AI](https://www.together.ai/), [Hyperbolic](https://hyperbolic.xyz/), [Anyscale](https://www.anyscale.com/), [HuggingFace](https://huggingface.co/) for their generous sponsorship. Learn more about partnership [here](https://lmsys.org/donations/).
-
-<div class="sponsor-image-about">
-    <img src="https://storage.googleapis.com/public-arena-asset/skylab.png" alt="SkyLab">
-    <img src="https://storage.googleapis.com/public-arena-asset/kaggle.png" alt="Kaggle">
-    <img src="https://storage.googleapis.com/public-arena-asset/mbzuai.jpeg" alt="MBZUAI">
-    <img src="https://storage.googleapis.com/public-arena-asset/a16z.jpeg" alt="a16z">
-    <img src="https://storage.googleapis.com/public-arena-asset/together.png" alt="Together AI">
-    <img src="https://storage.googleapis.com/public-arena-asset/hyperbolic_logo.png" alt="Hyperbolic">
-    <img src="https://storage.googleapis.com/public-arena-asset/anyscale.png" alt="AnyScale">
-    <img src="https://storage.googleapis.com/public-arena-asset/huggingface.png" alt="HuggingFace">
-</div>
-"""
-    gr.Markdown(about_markdown, elem_id="about_markdown")
-
-
 def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo=True):
     promotion = (
         """
@@ -1045,22 +982,14 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     share_str = gr.Textbox(visible=False)
     gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
+    # Load RAG examples
     rag_examples = load_rag_examples()
+    rag_examples_names = [load_rag_example(example_name)[0]["title"] for example_name in rag_examples]
+    rag_examples_mapping = {name: example_name for name, example_name in zip(rag_examples_names, rag_examples)}
 
-    with gr.Row():
-        model_selector = gr.Dropdown(
-            choices=models,
-            value=models[0] if len(models) > 0 else "",
-            interactive=True,
-            show_label=False,
-            container=False,
-        )
-        example_selector = gr.Dropdown(
-            visible=False,
-            interactive=True,
-            show_label=False,
-            container=False,
-        )
+    # Create state variables for job and freelancers
+    job_state = gr.State()
+    freelancers_state = gr.State()
 
     with gr.Accordion("📄 Job Information", open=True):
         job_info_html_component = gr.HTML("", elem_id="job_info")
@@ -1069,11 +998,14 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         freelancer_list_component = gr.HTML("", elem_id="freelancer_list")
 
     # Initialize the default example
-    initial_job_info_html, initial_freelancers_table = update_rag_example(
-        rag_examples[0]
-    )
-    job_info_html_component.value = initial_job_info_html
-    freelancer_list_component.value = initial_freelancers_table
+    initial_job, initial_freelancers = load_rag_example(rag_examples[0] if rag_examples else "")
+    job_info_html, freelancer_list_html = update_rag_example_display(initial_job, initial_freelancers)
+    job_info_html_component.value = job_info_html
+    freelancer_list_component.value = freelancer_list_html
+
+    # Set initial job and freelancers in state
+    job_state.value = initial_job
+    freelancers_state.value = initial_freelancers
 
     with gr.Group(elem_id="share-region-named"):
         with gr.Row(elem_id="model_selector_row"):
@@ -1105,8 +1037,8 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 container=False,
             )
             rag_example_selector = gr.Dropdown(
-                choices=rag_examples,
-                value=rag_examples[0] if len(rag_examples) > 0 else "",
+                choices=rag_examples_names,
+                value=rag_examples_names[0] if len(rag_examples_names) > 0 else "",
                 label="RAG Examples",
                 interactive=True,
                 show_label=True,
@@ -1203,6 +1135,8 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             generate_thoughts,
             summarize_results,
             rag_selector,
+            job_state,
+            freelancers_state,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1281,13 +1215,10 @@ function copy(share_str) {
             generate_thoughts,
             rag_selector,
             summarize_results,
+            job_state,
+            freelancers_state,
         ],
         [state, chatbot] + btn_list,
-    )
-    rag_example_selector.change(
-        update_rag_example,
-        inputs=[rag_example_selector],
-        outputs=[job_info_html_component, freelancer_list_component],
     )
 
     url_params = gr.JSON(visible=False)
@@ -1317,8 +1248,52 @@ function copy(share_str) {
             + btn_list,
         )
 
+    # Register event listener for RAG example changes
+    def on_rag_example_change(example_name):
+        example_name = rag_examples_mapping[example_name]
+        job, freelancers = load_rag_example(example_name)
+        job_info_html, freelancer_list_html = update_rag_example_display(job, freelancers)
+        return job_info_html, freelancer_list_html, job, freelancers
+
+
+    rag_example_selector.change(
+        on_rag_example_change,
+        inputs=[rag_example_selector],
+        outputs=[
+            job_info_html_component,
+            freelancer_list_component,
+            job_state,
+            freelancers_state,
+        ],
+    )
+
     return [state, model_selector]
 
+def update_rag_example_display(job, freelancers):
+    job_info_html = f"""
+    <div style="padding: 10px;">
+        <h3>{job.get('title', 'No Title')}</h3>
+        <p>{job.get('description', 'No Description')}</p>
+    </div>
+    """
+    freelancers_table = """
+    <table style="width:100%; border-collapse: collapse;">
+        <tr>
+            <th style="text-align: left; padding: 8px;">Name</th>
+            <th style="text-align: left; padding: 8px;">Title</th>
+            <th style="text-align: left; padding: 8px;">Profile</th>
+        </tr>
+    """
+    for freelancer in freelancers:
+        freelancers_table += f"""
+        <tr>
+            <td style="padding: 8px;">{freelancer['name']}</td>
+            <td style="padding: 8px;">{freelancer['title']}</td>
+            <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
+        </tr>
+        """
+    freelancers_table += "</table>"
+    return job_info_html, freelancers_table
 
 def build_demo(models):
     if args.model_list_mode not in ["once", "reload"]:
