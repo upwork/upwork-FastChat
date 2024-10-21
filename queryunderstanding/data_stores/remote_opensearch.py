@@ -34,6 +34,7 @@ class RemoteOpenSearch(DataStore):
         response = self._make_request(payload)
         results = [
             {
+                "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["PROVIDER_COMMENT"],
                 "distance": response["distance"],
             }
@@ -57,6 +58,7 @@ class RemoteOpenSearch(DataStore):
         response = self._make_request(payload)
         results = [
             {
+                "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["CONCAT_POST_TITLE_DESC"],
                 "distance": response["distance"],
             }
