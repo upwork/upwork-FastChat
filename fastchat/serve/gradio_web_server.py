@@ -370,12 +370,13 @@ def _prepare_text_with_image(state, text, images, csam_flag):
     return text
 
 
-def get_state(state, model_selector, example_selector):
+def get_state(state, model_selector, example_selector, rag_selector):
     return base64.urlsafe_b64encode(
         json.dumps(
             {
                 "model": model_selector,
                 "example": example_selector,
+                "rag": rag_selector,
                 "system_message": state.conv.get_system_message(),
                 "messages": state.conv.messages,
             }
@@ -392,6 +393,7 @@ def init_chat(
     state,
     model_selector,
     example_selector,
+    rag_selector,
     system_message,
     url_params=None,
 ):
@@ -404,18 +406,23 @@ def init_chat(
         url_state = json.loads(base64.urlsafe_b64decode(state_str).decode("utf-8"))
         model_selector = url_state.get("model", "")
         example_selector = url_state.get("example", "")
+        rag_selector = url_state.get("rag", "")
     else:
         if not state or state.model_name != model_selector:
             example_selector = no_examples_label
+            rag_selector = "Context-Aware"
     logger.info(f"init_chat. ip: {ip} state: {url_state}")
 
     state = State(model_selector)
     new_system_message = None
     if not system_message:
         new_system_message = state.conv.get_system_message()
+    supports_rag = False
     examples_dict = {}
     model_api_dict = api_endpoint_info.get(model_selector, None)
     if model_api_dict:
+        if model_api_dict["model_name"].startswith("accounts/"):
+            supports_rag = True
         examples_file = model_api_dict.get("examples_file", None)
         if examples_file:
             fs, fspath = fsspec.url_to_fs(examples_file)
@@ -463,6 +470,10 @@ def init_chat(
         value=example_selector,
         visible=bool(examples_dict),
     )
+    rag_selector_dropdown = gr.Dropdown(
+        value=rag_selector,
+        visible=supports_rag,
+    )
     return (
         state,
         state.to_gradio_chatbot(),
@@ -471,6 +482,7 @@ def init_chat(
         None,
         model_selector_dropdown,
         example_selector_dropdown,
+        rag_selector_dropdown,
     ) + (disable_btn,) * 6
 
 
@@ -701,7 +713,7 @@ def generate_turn(
     except requests.exceptions.RequestException as e:
         conv.update_last_message(
             f"{SERVER_ERROR_MSG}\n\n"
-            f"(error_code: {ErrorCode.GRADIO_REQUEST_ERROR}, {e})"
+            f"(error_code: {ErrorCode.GRADIO_REQUEST_ERROR}, {e!r})"
         )
         yield (state, state.to_gradio_chatbot()) + (
             disable_btn,
@@ -715,7 +727,7 @@ def generate_turn(
     except Exception as e:
         conv.update_last_message(
             f"{SERVER_ERROR_MSG}\n\n"
-            f"(error_code: {ErrorCode.GRADIO_STREAM_UNKNOWN_ERROR}, {e})"
+            f"(error_code: {ErrorCode.GRADIO_STREAM_UNKNOWN_ERROR}, {e!r})"
         )
         yield (state, state.to_gradio_chatbot()) + (
             disable_btn,
@@ -1038,7 +1050,6 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 "\n\n".join(freelancer_info),
                 elem_id="freelancer_markdown",
             )
-            
 
         chatbot = gr.Chatbot(
             elem_id="chatbot",
@@ -1137,7 +1148,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
 
     share_btn.click(
         get_state,
-        [state, model_selector, example_selector],
+        [state, model_selector, example_selector, rag_selector],
         [share_str],
     ).then(
         None,
@@ -1162,7 +1173,7 @@ function copy(share_str) {
     gr.on(
         [clear_btn.click, system_message.blur],
         init_chat,
-        [state, model_selector, example_selector, system_message],
+        [state, model_selector, example_selector, rag_selector, system_message],
         [
             state,
             chatbot,
@@ -1171,17 +1182,18 @@ function copy(share_str) {
             imagebox,
             model_selector,
             example_selector,
+            rag_selector,
         ]
         + btn_list,
     )
     gr.on(
-        [model_selector.input, example_selector.input],
+        [model_selector.input, example_selector.input, rag_selector.input],
         clear_system_message,
         [],
         [system_message],
     ).then(
         init_chat,
-        [state, model_selector, example_selector, system_message],
+        [state, model_selector, example_selector, rag_selector, system_message],
         [
             state,
             chatbot,
@@ -1190,6 +1202,7 @@ function copy(share_str) {
             imagebox,
             model_selector,
             example_selector,
+            rag_selector,
         ]
         + btn_list,
     )
@@ -1227,7 +1240,14 @@ function copy(share_str) {
             js=load_js,
         ).then(
             init_chat,
-            [state, model_selector, example_selector, system_message, url_params],
+            [
+                state,
+                model_selector,
+                example_selector,
+                rag_selector,
+                system_message,
+                url_params,
+            ],
             [
                 state,
                 chatbot,
@@ -1236,6 +1256,7 @@ function copy(share_str) {
                 imagebox,
                 model_selector,
                 example_selector,
+                rag_selector,
             ]
             + btn_list,
         )
