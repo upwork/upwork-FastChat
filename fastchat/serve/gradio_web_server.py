@@ -48,7 +48,6 @@ from fastchat.utils import (
     load_image,
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
-from queryunderstanding.utils import load_freelancers, load_job
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -58,8 +57,6 @@ no_change_btn = gr.Button()
 enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
 
-freelancers: list[dict[str, str]] = load_freelancers()
-job: dict[str, str] = load_job()
 query_understanding = QueryUnderstanding()
 
 controller_url = None
@@ -587,6 +584,8 @@ def generate_turn(
     use_recommended_config=False,
     rag=None,
     summarize_results=False,
+    job_state=None,
+    freelancers_state=None,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -597,8 +596,8 @@ def generate_turn(
     if rag:
         retrieved_context = query_understanding.search(
             conv,
-            freelancers=freelancers,
-            job=job,
+            freelancers=freelancers_state,
+            job=job_state,
             enforce_rag=rag,
             summarize_results=summarize_results,
         )
@@ -769,8 +768,10 @@ def bot_response(
     top_p,
     max_new_tokens,
     generate_thoughts,
-    rag,
+    rag_selector,
     summarize_results,
+    job_state,
+    freelancers_state,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -796,8 +797,8 @@ def bot_response(
             yield (state, state.to_gradio_chatbot()) + (no_change_btn,) * 6
             return
 
-    logger.info(f"RAG: {rag}")
-    if rag != "No RAG":
+    logger.info(f"RAG: {rag_selector}")
+    if rag_selector != "No RAG":
         yield from generate_turn(
             state,
             role=state.conv.roles[3],
@@ -806,8 +807,10 @@ def bot_response(
             max_new_tokens=max_new_tokens,
             request=request,
             use_recommended_config=use_recommended_config,
-            rag=rag,
+            rag=rag_selector,
             summarize_results=summarize_results,
+            job_state=job_state,
+            freelancers_state=freelancers_state,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -953,13 +956,10 @@ def build_about():
 # About Us
 Chatbot Arena is an open-source research project developed by members from [LMSYS](https://lmsys.org) and UC Berkeley [SkyLab](https://sky.cs.berkeley.edu/). Our mission is to build an open platform to evaluate LLMs by human preference in the real-world.
 We open-source our [FastChat](https://github.com/lm-sys/FastChat) project at GitHub and release chat and human feedback dataset. We invite everyone to join us!
-
 ## Arena Core Team
 - [Lianmin Zheng](https://lmzheng.net/) (co-lead), [Wei-Lin Chiang](https://infwinston.github.io/) (co-lead), [Ying Sheng](https://sites.google.com/view/yingsheng/home), [Joseph E. Gonzalez](https://people.eecs.berkeley.edu/~jegonzal/), [Ion Stoica](http://people.eecs.berkeley.edu/~istoica/)
-
 ## Past Members
 - [Siyuan Zhuang](https://scholar.google.com/citations?user=KSZmI5EAAAAJ), [Hao Zhang](https://cseweb.ucsd.edu/~haozhang/)
-
 ## Learn more
 - Chatbot Arena [paper](https://arxiv.org/abs/2403.04132), [launch blog](https://lmsys.org/blog/2023-05-03-arena/), [dataset](https://github.com/lm-sys/FastChat/blob/main/docs/dataset_release.md), [policy](https://lmsys.org/blog/2024-03-01-policy/)
 - LMSYS-Chat-1M dataset [paper](https://arxiv.org/abs/2309.11998), LLM Judge [paper](https://arxiv.org/abs/2306.05685)
@@ -972,7 +972,6 @@ We open-source our [FastChat](https://github.com/lm-sys/FastChat) project at Git
 ## Acknowledgment
 We thank [SkyPilot](https://github.com/skypilot-org/skypilot) and [Gradio](https://github.com/gradio-app/gradio) team for their system support.
 We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https://www.kaggle.com/), [MBZUAI](https://mbzuai.ac.ae/), [a16z](https://www.a16z.com/), [Together AI](https://www.together.ai/), [Hyperbolic](https://hyperbolic.xyz/), [Anyscale](https://www.anyscale.com/), [HuggingFace](https://huggingface.co/) for their generous sponsorship. Learn more about partnership [here](https://lmsys.org/donations/).
-
 <div class="sponsor-image-about">
     <img src="https://storage.googleapis.com/public-arena-asset/skylab.png" alt="SkyLab">
     <img src="https://storage.googleapis.com/public-arena-asset/kaggle.png" alt="Kaggle">
@@ -985,6 +984,26 @@ We also thank [UC Berkeley SkyLab](https://sky.cs.berkeley.edu/), [Kaggle](https
 </div>
 """
     gr.Markdown(about_markdown, elem_id="about_markdown")
+
+
+def load_rag_examples():
+    examples = []
+    examples_dir = "queryunderstanding/data/"
+    for filename in os.listdir(examples_dir):
+        if filename.endswith(".json"):
+            example_name = os.path.splitext(filename)[0]
+            examples.append(example_name)
+    return examples
+
+
+def load_rag_example(example_name):
+    examples_dir = "queryunderstanding/data/"
+    filename = os.path.join(examples_dir, f"{example_name}.json")
+    with open(filename, "r") as f:
+        data = json.load(f)
+    job = data.get("job", {})
+    freelancers = data.get("freelancers", [])
+    return job, freelancers
 
 
 def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo=True):
@@ -1009,34 +1028,49 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     share_str = gr.Textbox(visible=False)
     gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
+    # Load RAG examples
+    rag_examples = load_rag_examples()
+    rag_examples_names = ["No Example"] + [
+        load_rag_example(example_name)[0]["title"] for example_name in rag_examples
+    ]
+    rag_examples_mapping = {"No Example": None}
+    rag_examples_mapping.update(
+        {
+            name: example_name
+            for name, example_name in zip(rag_examples_names[1:], rag_examples)
+        }
+    )
+
+    # Create state variables for job and freelancers
+    job_state = gr.State()
+    freelancers_state = gr.State()
+
     with gr.Accordion("📄 Job Information", open=True):
-        job_info_html = f"""
-        <div style="padding: 10px;">
-            <h3>{job['title']}</h3>
-            <p>{job['description']}</p>
-        </div>
-        """
-        gr.HTML(job_info_html, elem_id="job_info")
+        job_info_html_component = gr.HTML("", elem_id="job_info")
 
     with gr.Accordion("👥 Freelancers", open=True):
-        freelancers_table = """
-        <table style="width:100%; border-collapse: collapse;">
-            <tr>
-                <th style="text-align: left; padding: 8px;">Name</th>
-                <th style="text-align: left; padding: 8px;">Title</th>
-                <th style="text-align: left; padding: 8px;">Profile</th>
-            </tr>
-        """
-        for freelancer in freelancers:
-            freelancers_table += f"""
-            <tr>
-                <td style="padding: 8px;">{freelancer['name']}</td>
-                <td style="padding: 8px;">{freelancer['title']}</td>
-                <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
-            </tr>
-            """
-        freelancers_table += "</table>"
-        gr.HTML(freelancers_table, elem_id="freelancer_list")
+        freelancer_list_component = gr.HTML("", elem_id="freelancer_list")
+
+    # Initialize the default example
+    initial_example_name = rag_examples_names[0]
+    if initial_example_name == "No Example":
+        initial_job = {}
+        initial_freelancers = []
+        job_info_html = ""
+        freelancer_list_html = ""
+    else:
+        initial_job, initial_freelancers = load_rag_example(
+            rag_examples_mapping[initial_example_name]
+        )
+        job_info_html, freelancer_list_html = update_rag_example_display(
+            initial_job, initial_freelancers
+        )
+    job_info_html_component.value = job_info_html
+    freelancer_list_component.value = freelancer_list_html
+
+    # Set initial job and freelancers in state
+    job_state.value = initial_job
+    freelancers_state.value = initial_freelancers
 
     with gr.Group(elem_id="share-region-named"):
         with gr.Row(elem_id="model_selector_row"):
@@ -1067,15 +1101,14 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
                 show_label=False,
                 container=False,
             )
-        with gr.Accordion("Freelancers", open=True):
-            freelancer_info = [
-                f"{f['name']} - [{f['title']}]({f['url']})" for f in freelancers
-            ]
-            gr.Markdown(
-                "\n\n".join(freelancer_info),
-                elem_id="freelancer_markdown",
+            rag_example_selector = gr.Dropdown(
+                choices=rag_examples_names,
+                value=rag_examples_names[0],
+                label="RAG Examples",
+                interactive=True,
+                show_label=True,
+                container=False,
             )
-
         chatbot = gr.Chatbot(
             elem_id="chatbot",
             label="Scroll down and start chatting",
@@ -1167,6 +1200,8 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             generate_thoughts,
             summarize_results,
             rag_selector,
+            job_state,
+            freelancers_state,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1247,6 +1282,8 @@ function copy(share_str) {
             generate_thoughts,
             rag_selector,
             summarize_results,
+            job_state,
+            freelancers_state,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1286,7 +1323,60 @@ function copy(share_str) {
             + btn_list,
         )
 
+    # Register event listener for RAG example changes
+    def on_rag_example_change(example_name):
+        if example_name == "No Example":
+            job_info_html = ""
+            freelancer_list_html = ""
+            job = {}
+            freelancers = []
+        else:
+            example_name = rag_examples_mapping[example_name]
+            job, freelancers = load_rag_example(example_name)
+            job_info_html, freelancer_list_html = update_rag_example_display(
+                job, freelancers
+            )
+        return job_info_html, freelancer_list_html, job, freelancers
+
+    rag_example_selector.change(
+        on_rag_example_change,
+        inputs=[rag_example_selector],
+        outputs=[
+            job_info_html_component,
+            freelancer_list_component,
+            job_state,
+            freelancers_state,
+        ],
+    )
+
     return [state, model_selector]
+
+
+def update_rag_example_display(job, freelancers):
+    job_info_html = f"""
+    <div style="padding: 10px;">
+        <h3>{job.get('title', 'No Title')}</h3>
+        <p>{job.get('description', 'No Description')}</p>
+    </div>
+    """
+    freelancers_table = """
+    <table style="width:100%; border-collapse: collapse;">
+        <tr>
+            <th style="text-align: left; padding: 8px;">Name</th>
+            <th style="text-align: left; padding: 8px;">Title</th>
+            <th style="text-align: left; padding: 8px;">Profile</th>
+        </tr>
+    """
+    for freelancer in freelancers:
+        freelancers_table += f"""
+        <tr>
+            <td style="padding: 8px;">{freelancer['name']}</td>
+            <td style="padding: 8px;">{freelancer['title']}</td>
+            <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
+        </tr>
+        """
+    freelancers_table += "</table>"
+    return job_info_html, freelancers_table
 
 
 def build_demo(models):

@@ -1,0 +1,28 @@
+{
+  "job": {
+    "post_id": "1777279035155656704",
+    "url": "https://www.upwork.com/jobs/~01a461fe483fe16910",
+    "title": "Django, generative AI expert, image analysis developer for a Drone Image Analysis tool",
+    "description": "We are looking for someone who can build a deep learning drone image analysis online tool.\n\nThis tool would search images taken from a drone and find items of interest for search and rescue/recovery. We would then need to be able to pin items to the photo and retrieve the exact GPS location from the images when an item of interest is found.\n\nWe want this tool to be able to learn, and for it to have the ability for us to teach it using images of items we want it to find.\n\nThe photos it will search will be from a drone that is used for photogrammetry, which means it will include a GPS coordinate of the photo.\n\nIt will need to be able to use this GPS coordinate to locate the items of interest in the photos and pinpoint the coordinates of the item so that we can use it to go out to the location and find the target.\n\nIt will need to be able to locate things like bones, clothing, colors, and more.\n\nBelow is a program similar to what we want to create.\n\n(link removed)\n\n(link removed)\n\nThis program uses outdated and old technology that does not utilize any AI and cannot be trained, but I think it might give you a better idea of what we are trying to accomplish.\n\nThe program listed above is not our program and is only an example of the concept we want to create.\n\nIn our program we will want to be able to search images using different parameters:\n\n* Anomalies\n* Specific Colors\n* Specific Items\n\nAnomalies: The ability for the program to find anomalies and allow input from the user to verify or deny an anomaly as an item of interest and to help the program learn what it's picking up. It would be great if this program could search the internet and try to find out what the anomaly actually is and identify it without human input and allow human input to verify or deny the item.\n\nSpecific Color: Using a color picker this will allow us to search images trying to find the specific color with a variation like the app above does, but better.\n\nSpecific Items: We would like to take data sets of photos and teach the the program to find these items, such as water bottles, articles of clothing, bones, hats, etc.. We will provide the training images myself in various environments.\nWe want this tool to be able to learn, and for it to have the ability for us to teach it using images of items we want it to find."
+  },
+  "freelancers": [
+    {
+      "person_id": "690696453982433280",
+      "name": "Muhammad I.",
+      "url": "https://www.upwork.com/freelancers/mirfan",
+      "title": "AI & Machine Learning Expert | Generative AI | Computer Vision | NLP"
+    },
+    {
+      "person_id": "424188037735759872",
+      "name": "Mittal P.",
+      "url": "https://www.upwork.com/freelancers/~01e07b4fd97b25800e",
+      "title": "GenerativeAI | LLM | RAG | NLP | Chatbot | Python | Django | AI Expert"
+    },
+    {
+      "person_id": "424337898473291778",
+      "name": "Kat D.",
+      "url": "https://www.upwork.com/freelancers/aimarketing",
+      "title": "Machine Learning AI Development API Generative AI Computer Vision LLM"
+    }
+  ]
+}

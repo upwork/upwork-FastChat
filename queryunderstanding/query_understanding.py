@@ -58,11 +58,8 @@ class QueryUnderstanding:
             except Exception as e:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
         result_text = "\n".join(results)
-        result_text += (
-            f"\n\n### Job Information\n\n"
-            f"Title: {job['title']}\n\n"
-            f"Description: {job['description']}"
-        )
+        result_text += self._get_job_information(job)
+        result_text += self._get_freelancer_information(freelancers)
         if summarize_results:
             context.objects["results"] = result_text
             result_text = self.summarizer.summarize(context)
@@ -122,3 +119,23 @@ class QueryUnderstanding:
         Retrieved data from {retriever.RETRIEVER_NAME}:
         {retrieved_data}
         """
+
+    def _get_job_information(self, job: dict[str, str]) -> str:
+        """
+        Gets the information of the job.
+        """
+        return (
+            f"\n\n### Job Information\n\n"
+            f"Title: {job['title']}\n\n"
+            f"Description: {job['description']}"
+        )
+
+    def _get_freelancer_information(self, freelancers: list[dict[str, str]]) -> str:
+        """
+        Gets the information of the freelancers.
+        """
+        freelancer_info = []
+        for freelancer in freelancers:
+            freelancer_info.append(f"Name: {freelancer['name']}\n")
+            freelancer_info.append(f"Title: {freelancer['title']}\n")
+        return f"\n\n### Freelancer Information\n\nFreelancers:\n{freelancer_info}"
