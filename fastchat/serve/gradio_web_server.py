@@ -48,7 +48,7 @@ from fastchat.utils import (
     load_image,
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
-from queryunderstanding.utils import load_freelancers
+from queryunderstanding.utils import load_freelancers, load_job
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -59,7 +59,7 @@ enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
 
 freelancers: list[dict[str, str]] = load_freelancers()
-
+job: dict[str, str] = load_job()
 query_understanding = QueryUnderstanding()
 
 controller_url = None
@@ -595,18 +595,14 @@ def generate_turn(
     images = conv.get_images()
 
     if rag:
-        retrieved_data = query_understanding.search(
+        retrieved_context = query_understanding.search(
             conv,
             freelancers=freelancers,
+            job=job,
             enforce_rag=rag,
             summarize_results=summarize_results,
         )
-        rag_message = f"""
-        === Context data ===
-        {retrieved_data}
-        === End of context data ===
-        """
-        conv.update_last_message(rag_message)
+        conv.update_last_message(retrieved_context)
         return
 
     if model_api_dict is None:
@@ -1013,6 +1009,35 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
     share_str = gr.Textbox(visible=False)
     gr.Markdown(notice_markdown, elem_id="notice_markdown")
 
+    with gr.Accordion("📄 Job Information", open=True):
+        job_info_html = f"""
+        <div style="padding: 10px;">
+            <h3>{job['title']}</h3>
+            <p>{job['description']}</p>
+        </div>
+        """
+        gr.HTML(job_info_html, elem_id="job_info")
+
+    with gr.Accordion("👥 Freelancers", open=True):
+        freelancers_table = """
+        <table style="width:100%; border-collapse: collapse;">
+            <tr>
+                <th style="text-align: left; padding: 8px;">Name</th>
+                <th style="text-align: left; padding: 8px;">Title</th>
+                <th style="text-align: left; padding: 8px;">Profile</th>
+            </tr>
+        """
+        for freelancer in freelancers:
+            freelancers_table += f"""
+            <tr>
+                <td style="padding: 8px;">{freelancer['name']}</td>
+                <td style="padding: 8px;">{freelancer['title']}</td>
+                <td style="padding: 8px;"><a href="{freelancer['url']}" target="_blank">View Profile</a></td>
+            </tr>
+            """
+        freelancers_table += "</table>"
+        gr.HTML(freelancers_table, elem_id="freelancer_list")
+
     with gr.Group(elem_id="share-region-named"):
         with gr.Row(elem_id="model_selector_row"):
             model_selector = gr.Dropdown(
@@ -1105,7 +1130,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             label="Max output tokens",
         )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
-        summarize_results = gr.Checkbox(value=True, label="Summarize results")
+        summarize_results = gr.Checkbox(value=False, label="Summarize results")
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")

@@ -40,3 +40,4 @@ vqa_examples
 
 # Data files
 !queryunderstanding/data/freelancers.json
+!queryunderstanding/data/job.json

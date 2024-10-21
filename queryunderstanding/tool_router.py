@@ -4,44 +4,50 @@ import json
 from logging import getLogger
 from .config.constants import RAG_ROUTER_LLM
 from .utils import load_prompt
+from pydantic import BaseModel
+from enum import Enum
+from .utils import llm_client
 
 logger = getLogger(__name__)
 
 
+class Tool(Enum):
+    VECTOR_SEARCH = "Vector Search"
+    KNOWLEDGE_GRAPH = "Knowledge Graph"
+
+
+class ToolChoice(BaseModel):
+    tools: list[Tool]
+
+
 class ToolRouter:
     def __init__(self, retrievers: dict[str, Retriever]):
-        self.swarm = Swarm()
         self.retrievers = retrievers
-        self.selector_agent = Agent(
-            name="RAG Router",
-            model=RAG_ROUTER_LLM,
-            instructions=load_prompt("rag_router.txt").format(
-                retrievers=", ".join(self.retrievers.keys())
-            ),
+        self.prompt = load_prompt("rag_router.txt").format(
+            retrievers=", ".join(self.retrievers.keys())
         )
 
     def choose(
         self,
         messages: list[dict[str, str]],
     ) -> list[Retriever]:
-        response = self.swarm.run(
-            agent=self.selector_agent,
+        response = llm_client.beta.chat.completions.parse(
+            model=RAG_ROUTER_LLM,
             messages=[
+                {
+                    "role": "system",
+                    "content": self.prompt,
+                },
                 {
                     "role": "user",
                     "content": " ".join([message["content"] for message in messages]),
                 },
             ],
+            response_format=ToolChoice,
         )
-        logger.info(f"Retriever Selector Response: {response}")
-        try:
-            retriever_names = json.loads(response.messages[-1]["content"])
-            logger.info(f"Selected retrievers: {retriever_names}")
-            return [
-                self.retrievers[name]
-                for name in retriever_names
-                if name in self.retrievers
-            ]
-        except (json.JSONDecodeError, KeyError) as e:
-            logger.error(f"Error selecting retrievers: {e}")
-            return []
+        tools = response.choices[0].message.parsed.tools
+        tools_names = [tool.value for tool in tools]
+        logger.info(f"RAG Router Response: {tools_names}")
+        return [
+            self.retrievers[name] for name in tools_names if name in self.retrievers
+        ]
