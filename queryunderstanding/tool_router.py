@@ -1,6 +1,4 @@
 from .retriever import Retriever
-from swarm import Swarm, Agent
-import json
 from logging import getLogger
 from .config.constants import RAG_ROUTER_LLM
 from .utils import load_prompt
@@ -15,6 +13,7 @@ class Tool(Enum):
     REVIEWS_AND_WORK_HISTORY_SEMANTIC_SEARCH = "Reviews and Work History Semantic Search"
     KNOWLEDGE_GRAPH = "Knowledge Graph"
     HELP_CENTER_SEMANTIC_SEARCH = "Help Center Semantic Search"
+    FREELANCER_PROFILE_SEMANTIC_SEARCH = "Freelancer Profile Semantic Search"
 
 
 class ToolChoice(BaseModel):
