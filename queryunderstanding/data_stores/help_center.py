@@ -22,7 +22,7 @@ class HelpCenterSemanticSearch(DataStore):
             "index_name": "zendesk_q&a_umrlarge_non_nested",
             "field_to_search": "chunks_embeddings",
             "search_type": "vector_search",
-            "top_k": 5,
+            "top_k": 10,
             "query": query,
         }
         response = self._make_request(payload)
