@@ -27,15 +27,8 @@ class VectorSearchRetriever(Retriever):
         full_conversation = " ".join(
             [message["content"] for message in context.messages]
         )
-        if context.objects["job"]:
-            full_conversation += (
-                f"\n\n### Job Information\n\n"
-                f"Title: {context.objects['job']['title']}\n\n"
-                f"Description: {context.objects['job']['description']}"
-            )
         prompt = context.parameters.get("query_reformulation_prompt") or load_prompt(
             "query_reformulation.txt"
-            f"Description: {context.objects['job']['description']}"
         )
 
         response = llm_client.chat.completions.create(
