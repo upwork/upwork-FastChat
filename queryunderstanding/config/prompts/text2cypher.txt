@@ -72,4 +72,8 @@
 
     ### User Question
     The user asks:
-    {user_question}
+    {messages}
+
+    ### Freelancer
+    Use the freelancer ID to identify the freelancer in the queries
+    {freelancers}
