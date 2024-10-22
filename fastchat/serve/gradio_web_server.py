@@ -1386,28 +1386,54 @@ function copy(share_str) {
         )
 
     # Register event listener for RAG example changes
-    def on_rag_example_change(example_name):
+    def on_rag_example_change(state, example_name):
         if example_name == "No Example":
             job_info_html = ""
             freelancer_list_html = ""
             job = {}
             freelancers = []
         else:
-            example_name = rag_examples_mapping[example_name]
-            job, freelancers = load_rag_example(example_name)
+            example_key = rag_examples_mapping[example_name]
+            job, freelancers = load_rag_example(example_key)
             job_info_html, freelancer_list_html = update_rag_example_display(
                 job, freelancers
             )
-        return job_info_html, freelancer_list_html, job, freelancers
 
+        # Update the model and system prompt
+        new_model_name = "fireworks-llama-3.1-70b-instruct"
+        new_system_message = (
+            "Use the retrieved data to answer questions about the freelancers who applied for a job at Upwork. "
+            "You are Uma (Upwork's Mindful AI) and you give concise valuable answers and ask for clarification whenever necessary."
+        )
+
+        # Update the state with the new model and system prompt
+        state.model_name = new_model_name
+        state.conv.set_system_message(new_system_message)
+        state.conv.messages = []  # Optional: Clear conversation history if needed
+
+        # Return updated values for the components and state
+        return (
+            job_info_html,
+            freelancer_list_html,
+            job,
+            freelancers,
+            gr.update(value=new_model_name),
+            gr.update(value=new_system_message),
+            state,
+        )
+
+    # Ensure the change event is correctly set up
     rag_example_selector.change(
         on_rag_example_change,
-        inputs=[rag_example_selector],
+        inputs=[state, rag_example_selector],
         outputs=[
             job_info_html_component,
             freelancer_list_component,
             job_state,
             freelancers_state,
+            model_selector,
+            system_message,
+            state,
         ],
     )
 
