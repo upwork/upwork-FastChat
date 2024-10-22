@@ -55,7 +55,6 @@ class QueryUnderstanding:
             list[dict]: The objects retrieved from the data store.
         """
         messages = self._get_messages(conversation)
-        breakpoint()
         context = Context(
             messages=messages,
             objects={
@@ -78,7 +77,9 @@ class QueryUnderstanding:
         for retriever in retrievers:
             try:
                 retrieved_data: Results = retriever.retrieve(context)
-                result_text = f"Retrieved data from {retriever.RETRIEVER_NAME}:\n{retrieved_data}"
+                result_text = (
+                    f"Retrieved data from {retriever.RETRIEVER_NAME}:\n{retrieved_data}"
+                )
                 yield result_text
             except Exception as e:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
