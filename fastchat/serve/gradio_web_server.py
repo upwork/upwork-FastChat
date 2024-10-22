@@ -589,6 +589,9 @@ def generate_turn(
     freelancers_state=None,
     text2cypher_prompt=None,
     query_reformulation_prompt=None,
+    rag_router_prompt=None,
+    enforce_rag_instruction_prompt=None,
+    results_summarizer_prompt=None,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -604,6 +607,9 @@ def generate_turn(
             enforce_rag=rag,
             text2cypher_prompt=text2cypher_prompt,
             query_reformulation_prompt=query_reformulation_prompt,
+            rag_router_prompt=rag_router_prompt,
+            enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
+            results_summarizer_prompt=results_summarizer_prompt,
         ):
             current_message = conv.messages[-1][1]
             current_message = current_message.replace(html_code, "")
@@ -783,11 +789,14 @@ def bot_response(
     summarize_results,
     job_state,
     freelancers_state,
+    text2cypher_prompt,
+    query_reformulation_prompt,
+    rag_router_prompt,
+    enforce_rag_instruction_prompt,
+    results_summarizer_prompt,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
-    text2cypher_prompt=None,
-    query_reformulation_prompt=None,
 ):
     ip = get_ip(request)
     logger.info(f"bot_response. ip: {ip}")
@@ -826,6 +835,9 @@ def bot_response(
             freelancers_state=freelancers_state,
             text2cypher_prompt=text2cypher_prompt,
             query_reformulation_prompt=query_reformulation_prompt,
+            rag_router_prompt=rag_router_prompt,
+            enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
+            results_summarizer_prompt=results_summarizer_prompt,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1189,6 +1201,21 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             lines=10,
             value=load_prompt("query_reformulation.txt"),
         )
+        rag_router_prompt = gr.Textbox(
+            label="RAG Router Prompt",
+            lines=20,
+            value=load_prompt("rag_router.txt"),
+        )
+        enforce_rag_instruction_prompt = gr.Textbox(
+            label="Enforce RAG Instruction Prompt",
+            lines=20,
+            value=load_prompt("enforce_rag_instruction.txt"),
+        )
+        results_summarizer_prompt = gr.Textbox(
+            label="Results Summarizer Prompt",
+            lines=20,
+            value=load_prompt("results_summarization.txt"),
+        )
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
@@ -1229,6 +1256,9 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             freelancers_state,
             text2cypher_prompt,
             query_reformulation_prompt,
+            rag_router_prompt,
+            enforce_rag_instruction_prompt,
+            results_summarizer_prompt,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1313,6 +1343,9 @@ function copy(share_str) {
             freelancers_state,
             text2cypher_prompt,
             query_reformulation_prompt,
+            rag_router_prompt,
+            enforce_rag_instruction_prompt,
+            results_summarizer_prompt,
         ],
         [state, chatbot] + btn_list,
     )

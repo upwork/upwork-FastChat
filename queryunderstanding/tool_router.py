@@ -1,16 +1,19 @@
-from .retriever import Retriever
-from logging import getLogger
-from .config.constants import RAG_ROUTER_LLM
-from .utils import load_prompt
-from pydantic import BaseModel
 from enum import Enum
+from logging import getLogger
+
+from pydantic import BaseModel
+
+from .config.constants import RAG_ROUTER_LLM
+from .retriever import Context, Retriever
 from .utils import llm_client
 
 logger = getLogger(__name__)
 
 
 class Tool(Enum):
-    REVIEWS_AND_WORK_HISTORY_SEMANTIC_SEARCH = "Reviews and Work History Semantic Search"
+    REVIEWS_AND_WORK_HISTORY_SEMANTIC_SEARCH = (
+        "Reviews and Work History Semantic Search"
+    )
     KNOWLEDGE_GRAPH = "Knowledge Graph"
     HELP_CENTER_SEMANTIC_SEARCH = "Help Center Semantic Search"
     FREELANCER_PROFILE_SEMANTIC_SEARCH = "Freelancer Profile Semantic Search"
@@ -23,24 +26,22 @@ class ToolChoice(BaseModel):
 class ToolRouter:
     def __init__(self, retrievers: dict[str, Retriever]):
         self.retrievers = retrievers
-        self.prompt = load_prompt("rag_router.txt").format(
-            retrievers=", ".join(self.retrievers.keys())
-        )
 
-    def choose(
-        self,
-        messages: list[dict[str, str]],
-    ) -> list[Retriever]:
+    def choose(self, context: Context) -> list[Retriever]:
+        prompt = context.parameters["rag_router_prompt"]
+        prompt = prompt.format(retrievers=", ".join(self.retrievers.keys()))
         response = llm_client.beta.chat.completions.parse(
             model=RAG_ROUTER_LLM,
             messages=[
                 {
                     "role": "system",
-                    "content": self.prompt,
+                    "content": prompt,
                 },
                 {
                     "role": "user",
-                    "content": " ".join([message["content"] for message in messages]),
+                    "content": " ".join(
+                        [message["content"] for message in context.messages]
+                    ),
                 },
             ],
             response_format=ToolChoice,
