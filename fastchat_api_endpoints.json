@@ -30,6 +30,12 @@
     "api_base": "https://api.fireworks.ai/inference/v1",
     "api_key": "env:FIREWORKS_API_KEY"
   },
+  "fireworks-llama-umami": {
+    "model_name": "accounts/fireworks/models/llama-v3p1-70b-instruct",
+    "api_type": "openai",
+    "api_base": "https://api.fireworks.ai/inference/v1",
+    "api_key": "env:FIREWORKS_API_KEY"
+  },
   "fireworks-202409271103-ar-812-s-640-c-55": {
     "model_name": "accounts/upwork/models/202409271103-ar-812-s-640-cs-80-bs-8-lr-1e-5-c-55",
     "conv_template": "llama-3",
