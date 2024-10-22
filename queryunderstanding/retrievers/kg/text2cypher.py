@@ -20,7 +20,6 @@ def generate_cypher_query_from_llm(context: Context) -> str:
         response = llm_client.chat.completions.create(
             model=KG_LLM_MODEL,
             messages=[
-                {"role": "system", "content": "You are a text-to-Cypher converter."},
                 {"role": "user", "content": context.parameters["text2cypher_prompt"]},
             ],
         )

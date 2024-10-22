@@ -43,8 +43,14 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             }
             for response in response["responses"]
         ]
-        sorted_results = sorted(results, key=lambda x: x["distance"], reverse=True)
-        return sorted_results
+        results = [
+            {
+                "content": result["content"],
+                "name": result["name"],
+            }
+            for result in sorted(results, key=lambda x: x["distance"], reverse=True)
+        ]
+        return results
 
     def _get_job_history(self, context) -> Results:
         freelancers = {
@@ -64,15 +70,20 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
         response = self._make_request(payload)
         results = [
             {
-                "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["CONCAT_POST_TITLE_DESC"],
                 "distance": response["distance"],
                 "name": freelancers[str(response["source_document"]["PERSON_ID"])],
             }
             for response in response["responses"]
         ]
-        sorted_results = sorted(results, key=lambda x: x["distance"], reverse=True)
-        return sorted_results
+        results = [
+            {
+                "content": result["content"],
+                "name": result["name"],
+            }
+            for result in sorted(results, key=lambda x: x["distance"], reverse=True)
+        ]
+        return results
 
     def _make_request(self, payload: dict) -> Results:
         response = requests.post(

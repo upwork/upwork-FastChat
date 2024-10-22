@@ -16,6 +16,8 @@
     - Structure the query with MATCH statements to traverse the graph.
     - Only return what is asked. If edges are requested, only return them. If nodes are requested, only return nodes.
     - All sub queries in an UNION must have the same column names.
+    - L1 are top-level categories, L2 are mid-level categories and L3 are bottom-level categories
+    - L1 contains L2 which contains L3s
     - For work history, the link is WorkHistory -for_freelancer-> Freelancer.
     - For generic queries like outgoing/incoming edges keep it generic. 
             -outgoing MATCH (n {{id: 'Node'}})-[r]->(m) RETURN distinct type(r)

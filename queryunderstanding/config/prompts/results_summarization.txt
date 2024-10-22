@@ -24,3 +24,6 @@ Here are the results:
 
 And the original job post is:
 {job}
+
+And the freelancer names are:
+{freelancer_names}

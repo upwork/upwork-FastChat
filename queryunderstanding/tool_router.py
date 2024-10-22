@@ -48,7 +48,26 @@ class ToolRouter:
         )
         tools = response.choices[0].message.parsed.tools
         tools_names = [tool.value for tool in tools]
+        tools_names = self._apply_rules(context, tools_names)
         logger.info(f"RAG Router Response: {tools_names}")
-        return [
+        retrievers = [
             self.retrievers[name] for name in tools_names if name in self.retrievers
         ]
+        return retrievers
+
+    def _apply_rules(self, context: Context, tools_names: list[str]) -> list[str]:
+        messages = context.messages
+        last_message = messages[-1]["content"]
+        if "skills" in last_message.lower():
+            if not any(tool == Tool.KNOWLEDGE_GRAPH.value for tool in tools_names):
+                tools_names.append(Tool.KNOWLEDGE_GRAPH.value)
+        if "hourly rate" in last_message.lower():
+            if not any(tool == Tool.KNOWLEDGE_GRAPH.value for tool in tools_names):
+                tools_names.append(Tool.KNOWLEDGE_GRAPH.value)
+        if "success score" in last_message.lower():
+            if not any(tool == Tool.KNOWLEDGE_GRAPH.value for tool in tools_names):
+                tools_names.append(Tool.KNOWLEDGE_GRAPH.value)
+        if "contract" in last_message.lower():
+            if not any(tool == Tool.KNOWLEDGE_GRAPH.value for tool in tools_names):
+                tools_names.append(Tool.KNOWLEDGE_GRAPH.value)
+        return tools_names

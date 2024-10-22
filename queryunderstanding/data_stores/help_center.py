@@ -33,8 +33,13 @@ class HelpCenterSemanticSearch(DataStore):
             }
             for response in response["responses"]
         ]
-        sorted_results = sorted(results, key=lambda x: x["distance"], reverse=True)
-        return sorted_results
+        results = [
+            {
+                "content": result["content"],
+            }
+            for result in sorted(results, key=lambda x: x["distance"], reverse=True)
+        ]
+        return results
 
     def _make_request(self, payload: dict) -> dict:
         response = requests.post(

@@ -32,6 +32,7 @@
   },
   "fireworks-llama-umami": {
     "model_name": "accounts/fireworks/models/llama-v3p1-70b-instruct",
+    "conv_template": "llama-3",
     "api_type": "openai",
     "api_base": "https://api.fireworks.ai/inference/v1",
     "api_key": "env:FIREWORKS_API_KEY"

@@ -59,6 +59,7 @@ class QueryUnderstanding:
             objects={
                 "freelancers": freelancers,
                 "job": job,
+                "results": [],
             },
             parameters={
                 "text2cypher_prompt": text2cypher_prompt,
@@ -73,17 +74,38 @@ class QueryUnderstanding:
         yield "Using the following retrievers:"
         for retriever in retrievers:
             yield f"- {retriever.RETRIEVER_NAME}"
-        for retriever in retrievers:
+        import asyncio
+        import concurrent.futures
+
+        async def fetch_data(retriever, context):
             try:
-                retrieved_data: Results = retriever.retrieve(context)
+                retrieved_data: Results = await asyncio.to_thread(
+                    retriever.retrieve, context
+                )
                 result_text = (
                     f"Retrieved data from {retriever.RETRIEVER_NAME}:\n{retrieved_data}"
                 )
-                yield result_text
+                context.objects["results"].append(result_text)
+                if not summarize_results:
+                    return result_text
             except Exception as e:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
+                return None
+
+        async def run_tasks(retrievers, context):
+            tasks = [fetch_data(retriever, context) for retriever in retrievers]
+            return await asyncio.gather(*tasks)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            results = loop.run_until_complete(run_tasks(retrievers, context))
+            loop.close()
+
+        for result in results:
+            if result:
+                yield result
         if summarize_results:
-            context.objects["results"] = "\n".join(context.objects.get("results", []))
             summary = self.summarizer.summarize(context)
             yield summary
         job_info = self._get_job_information(context)
