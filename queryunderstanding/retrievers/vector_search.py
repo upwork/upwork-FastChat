@@ -31,10 +31,14 @@ class VectorSearchRetriever(Retriever):
                 f"Title: {context.objects['job']['title']}\n\n"
                 f"Description: {context.objects['job']['description']}"
             )
+        prompt = context.parameters.get("query_reformulation_prompt") or load_prompt(
+            "query_reformulation.txt"
+        )
+
         response = llm_client.chat.completions.create(
             model=QUERY_REFORMULATION_LLM,
             messages=[
-                {"role": "system", "content": load_prompt("query_reformulation.txt")},
+                {"role": "system", "content": prompt},
                 {"role": "user", "content": full_conversation},
             ],
         )

@@ -38,6 +38,8 @@ class QueryUnderstanding:
         freelancers: list[dict[str, str]],
         job: dict[str, str],
         enforce_rag: str | None = None,
+        text2cypher_prompt: str | None = None,
+        query_reformulation_prompt: str | None = None,
     ) -> str:
         """
         Searches for information relevant to the current conversation.
@@ -56,6 +58,10 @@ class QueryUnderstanding:
             objects={
                 "freelancers": freelancers,
                 "job": job,
+            },
+            parameters={
+                "text2cypher_prompt": text2cypher_prompt,
+                "query_reformulation_prompt": query_reformulation_prompt,
             },
         )
         results = [

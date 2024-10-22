@@ -48,6 +48,7 @@ from fastchat.utils import (
     load_image,
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
+from queryunderstanding.utils import load_prompt
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -586,6 +587,8 @@ def generate_turn(
     summarize_results=False,
     job_state=None,
     freelancers_state=None,
+    text2cypher_prompt=None,
+    query_reformulation_prompt=None,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -600,6 +603,8 @@ def generate_turn(
             job=job_state,
             enforce_rag=rag,
             summarize_results=summarize_results,
+            text2cypher_prompt=text2cypher_prompt,
+            query_reformulation_prompt=query_reformulation_prompt,
         )
         conv.update_last_message(retrieved_context)
         return
@@ -775,6 +780,8 @@ def bot_response(
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
+    text2cypher_prompt=None,
+    query_reformulation_prompt=None,
 ):
     ip = get_ip(request)
     logger.info(f"bot_response. ip: {ip}")
@@ -811,6 +818,8 @@ def bot_response(
             summarize_results=summarize_results,
             job_state=job_state,
             freelancers_state=freelancers_state,
+            text2cypher_prompt=text2cypher_prompt,
+            query_reformulation_prompt=query_reformulation_prompt,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1164,6 +1173,16 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
         summarize_results = gr.Checkbox(value=False, label="Summarize results")
+        text2cypher_prompt = gr.Textbox(
+            label="Text2Cypher Prompt",
+            lines=20,
+            value=load_prompt("text2cypher.txt"),
+        )
+        query_reformulation_prompt = gr.Textbox(
+            label="Query Reformulation Prompt",
+            lines=10,
+            value=load_prompt("query_reformulation.txt"),
+        )
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
@@ -1202,6 +1221,8 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             rag_selector,
             job_state,
             freelancers_state,
+            text2cypher_prompt,
+            query_reformulation_prompt,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1284,6 +1305,8 @@ function copy(share_str) {
             summarize_results,
             job_state,
             freelancers_state,
+            text2cypher_prompt,
+            query_reformulation_prompt,
         ],
         [state, chatbot] + btn_list,
     )
