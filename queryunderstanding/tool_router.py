@@ -12,7 +12,7 @@ logger = getLogger(__name__)
 
 
 class Tool(Enum):
-    VECTOR_SEARCH = "Vector Search"
+    REVIEWS_AND_WORK_HISTORY_SEMANTIC_SEARCH = "Reviews and Work History Semantic Search"
     KNOWLEDGE_GRAPH = "Knowledge Graph"
 
 

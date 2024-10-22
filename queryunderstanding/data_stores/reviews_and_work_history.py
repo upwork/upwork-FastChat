@@ -9,7 +9,7 @@ HEADERS = {
 logger = logging.getLogger(__name__)
 
 
-class RemoteOpenSearch(DataStore):
+class ReviewsAndWorkHistorySemanticSearch(DataStore):
     def connect(self):
         pass
 

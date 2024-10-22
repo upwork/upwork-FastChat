@@ -1,14 +1,11 @@
 from ..retriever import Retriever, Context, Results
-from ..data_stores import remote_opensearch
+from ..data_stores import reviews_and_work_history
 from ..utils import load_prompt, llm_client
 from ..config.constants import QUERY_REFORMULATION_LLM
 
 
 class VectorSearchRetriever(Retriever):
     RETRIEVER_NAME = "Vector Search"
-
-    def __init__(self):
-        self.data_store = remote_opensearch.RemoteOpenSearch()
 
     def retrieve(self, context: Context) -> Results:
         context.objects["query"] = self._reformulate_query(context)
