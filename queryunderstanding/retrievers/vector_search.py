@@ -33,6 +33,7 @@ class VectorSearchRetriever(Retriever):
             )
         prompt = context.parameters.get("query_reformulation_prompt") or load_prompt(
             "query_reformulation.txt"
+            f"Description: {context.objects['job']['description']}"
         )
 
         response = llm_client.chat.completions.create(
