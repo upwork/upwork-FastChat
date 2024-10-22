@@ -4,7 +4,7 @@ Return the retriever name(s) as a JSON list.
 
 - "Reviews and Work History Semantic Search" - Contains information about the freelancer work history and past projects feedbacks.
 - "Knowledge Graph" - Contains information about Upwork's database of freelancers, jobs, clients, contracts, skills, etc.
-
+- "Help Center Semantic Search" - Contains information about the Upwork's platform.
 
 Examples:
 - How many active contracts does X have? -> ["Knowledge Graph"]
@@ -16,3 +16,4 @@ Examples:
 - "List the pros and cons of this freelancer's profile." -> ["Profile Semantic Search"]
 - "How many jobs have this freelancer done in the last 3 months?" -> ["Knowledge Graph"]
 - "What were the top 3 projects this freelancer worked on?" -> ["Reviews and Work History Semantic Search", "Knowledge Graph"]
+- "How can I send an Offer to the freelancer?" -> ["Help Center Semantic Search"]

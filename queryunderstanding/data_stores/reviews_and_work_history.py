@@ -10,8 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class ReviewsAndWorkHistorySemanticSearch(DataStore):
-    def connect(self):
-        pass
+    DATA_STORE_NAME = "Reviews and Work History"
 
     def search(self, context) -> Results:
         reviews = self._get_reviews(context)
@@ -20,7 +19,9 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
         return Results(objects=objects)
 
     def _get_reviews(self, context) -> Results:
-        freelancer_ids = [freelancer["person_id"] for freelancer in context.objects["freelancers"]]
+        freelancer_ids = [
+            freelancer["person_id"] for freelancer in context.objects["freelancers"]
+        ]
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_review_umrlarge_non_nested",
@@ -44,7 +45,9 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
         return sorted_results
 
     def _get_job_history(self, context) -> Results:
-        freelancer_ids = [freelancer["person_id"] for freelancer in context.objects["freelancers"]]
+        freelancer_ids = [
+            freelancer["person_id"] for freelancer in context.objects["freelancers"]
+        ]
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_history_umrlarge_non_nested",

@@ -14,6 +14,7 @@ logger = getLogger(__name__)
 class Tool(Enum):
     REVIEWS_AND_WORK_HISTORY_SEMANTIC_SEARCH = "Reviews and Work History Semantic Search"
     KNOWLEDGE_GRAPH = "Knowledge Graph"
+    HELP_CENTER_SEMANTIC_SEARCH = "Help Center Semantic Search"
 
 
 class ToolChoice(BaseModel):

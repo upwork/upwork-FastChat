@@ -1,11 +1,10 @@
-import json
 from logging import getLogger
 
 from fastchat.conversation import Conversation
 
 from .retriever import Context, Results, Retriever
 from .retrievers import knowledge_graph, vector_search
-from .data_stores import reviews_and_work_history
+from .data_stores import help_center, reviews_and_work_history
 from .summarizer import ResultsSummarizer
 from .tool_router import ToolRouter
 from .utils import load_prompt
@@ -16,6 +15,9 @@ DEFAULT_RETRIEVERS = {
     "Knowledge Graph": knowledge_graph.KnowledgeGraphRetriever(),
     "Reviews and Work History Semantic Search": vector_search.VectorSearchRetriever(
         reviews_and_work_history.ReviewsAndWorkHistorySemanticSearch()
+    ),
+    "Help Center Semantic Search": vector_search.VectorSearchRetriever(
+        help_center.HelpCenterSemanticSearch()
     ),
 }
 
@@ -54,7 +56,7 @@ class QueryUnderstanding:
             },
         )
         results = [
-            f">>>>>>>>> Using the following retrievers: {[retriever.RETRIEVER_NAME for retriever in retrievers]} <<<<<<<",
+            f"------ Using the following retrievers: {[retriever.RETRIEVER_NAME for retriever in retrievers]} ------",
         ]
         for retriever in retrievers:
             try:

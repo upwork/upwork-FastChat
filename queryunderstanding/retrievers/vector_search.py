@@ -1,11 +1,16 @@
 from ..retriever import Retriever, Context, Results
-from ..data_stores import reviews_and_work_history
 from ..utils import load_prompt, llm_client
 from ..config.constants import QUERY_REFORMULATION_LLM
 
 
 class VectorSearchRetriever(Retriever):
     RETRIEVER_NAME = "Vector Search"
+
+    def __init__(self, data_store):
+        super().__init__(data_store)
+        self.RETRIEVER_NAME = (
+            self.RETRIEVER_NAME + " - " + self.data_store.DATA_STORE_NAME
+        )
 
     def retrieve(self, context: Context) -> Results:
         context.objects["query"] = self._reformulate_query(context)
