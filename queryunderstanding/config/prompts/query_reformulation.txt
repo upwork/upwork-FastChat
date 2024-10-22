@@ -1,1 +1,20 @@
-You are a helpful assistant that reformulates a conversation into a more specific and focused query for a vector search.
+You are a helpful, pattern-following assistant.
+Given the following conversation between Uma and the user on the Upwork platform:
+Uma: Here are the three candidates for the job regarding Java Development with Springboot.
+User: From these candidates, I want someone who can understand the problem well and convert the task into smaller tasks, with clear milestones and communicate well the timeline and progress.
+Uma: Candidate A has a strong background in Java and Springboot, with experience in breaking down complex projects into manageable tasks. They have received positive feedback for their communication and project management skills.
+User: That sounds promising. What about the other two candidates?
+Uma: Candidate B is a senior Java developer with expertise in Springboot and Agile methodologies. They have a proven track record of delivering projects on time and within budget. Candidate C is a skilled communicator and has experience leading development teams, but their Java and Springboot experience is more limited compared to the other candidates.
+Instead of having this entire conversation, how can the User reformulate their requirements into a concise query to find the most suitable information? Respond with that query.
+java springboot developer with strong problem-solving, project management, and communication skills
+Given the following conversation between Uma and the User on the Upwork platform:
+Uma: I am here to help you write your proposal for this job about designing a logo.
+User: Let's write the proposal highlighting my design skills
+Instead of having this entire conversation, how can the User reformulate their requirements into a concise query to find the most suitable candidate? Respond with that query.
+logo design
+Uma: I see you have completed 4 jobs related to logo design, should we include them in the proposal?
+User: That sounds good, but also include the jobs I did for Apple designing their website.
+Instead of having this entire conversation, how can the User reformulate their requirements into a concise query to find the most suitable candidate? Respond with that query.
+apple website design
+Given the following conversation between Uma and the User on the Upwork platform.
+Instead of having this entire conversation, how can the User reformulate their requirements into a concise query to find the most suitable information? Respond with that query.

@@ -70,6 +70,9 @@ class QueryUnderstanding:
                 "enforce_rag": enforce_rag,
             },
         )
+        freelancer_info = self._get_freelancer_information(context)
+        if freelancer_info:
+            yield freelancer_info
         retrievers = self._choose_retrievers(context)
         yield "Using the following retrievers:"
         for retriever in retrievers:
@@ -90,9 +93,6 @@ class QueryUnderstanding:
         job_info = self._get_job_information(context)
         if job_info:
             yield job_info
-        freelancer_info = self._get_freelancer_information(context)
-        if freelancer_info:
-            yield freelancer_info
         instruction = self._enforce_rag_instruction(context)
         yield instruction
 
@@ -172,7 +172,7 @@ class QueryUnderstanding:
         freelancer_info = []
         for freelancer in freelancers:
             freelancer_info.append(f"Name: {freelancer['name']}\n")
-            freelancer_info.append(f"Title: {freelancer['title']}\n")
+            freelancer_info.append(f"Person ID: {freelancer['person_id']}\n")
         return f"\n\n### Freelancer Information\n\nFreelancers:\n{freelancer_info}"
 
     def _enforce_rag_instruction(self, context: Context) -> str:
