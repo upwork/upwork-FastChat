@@ -592,22 +592,31 @@ def generate_turn(
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
-    conv.append_message(role, None)
-    model_api_dict = api_endpoint_info.get(model_name, None)
-    images = conv.get_images()
 
+    html_code = "▌"
     if rag:
-        retrieved_context = query_understanding.search(
+        conv.append_message(state.conv.roles[3], "Retrieving relevant information...")
+        for retrieved_context in query_understanding.search(
             conv,
+            summarize_results=summarize_results,
             freelancers=freelancers_state,
             job=job_state,
             enforce_rag=rag,
-            summarize_results=summarize_results,
             text2cypher_prompt=text2cypher_prompt,
             query_reformulation_prompt=query_reformulation_prompt,
-        )
-        conv.update_last_message(retrieved_context)
+        ):
+            current_message = conv.messages[-1][1]
+            current_message = current_message.replace(html_code, "")
+            current_message += f"\n{retrieved_context}"
+            current_message += html_code
+            conv.update_last_message(current_message)
+            yield (state, state.to_gradio_chatbot()) + (disable_btn,) * 6
+        conv.update_last_message(current_message.replace(html_code, ""))
         return
+
+    conv.append_message(role, None)
+    model_api_dict = api_endpoint_info.get(model_name, None)
+    images = conv.get_images()
 
     if model_api_dict is None:
         # Query worker address
@@ -679,9 +688,6 @@ def generate_turn(
             state,
             stream=stream,
         )
-
-    # html_code = ' <span class="cursor"></span> '
-    html_code = "▌"
 
     # conv.update_last_message("▌")
     conv.update_last_message(html_code)

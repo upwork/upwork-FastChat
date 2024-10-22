@@ -1,4 +1,5 @@
 from logging import getLogger
+from typing import Generator
 
 from fastchat.conversation import Conversation
 
@@ -40,7 +41,7 @@ class QueryUnderstanding:
         enforce_rag: str | None = None,
         text2cypher_prompt: str | None = None,
         query_reformulation_prompt: str | None = None,
-    ) -> str:
+    ) -> Generator[str, None, None]:
         """
         Searches for information relevant to the current conversation.
 
@@ -50,9 +51,11 @@ class QueryUnderstanding:
         Returns:
             list[dict]: The objects retrieved from the data store.
         """
-        messages: list[dict[str, str]] = self._get_messages(conversation)
-        logger.info(f"Query Understanding Messages: {messages}")
+        messages = self._get_messages(conversation)
         retrievers = self._choose_retrievers(messages, enforce_rag)
+        yield "Using the following retrievers:"
+        for retriever in retrievers:
+            yield f"- {retriever.RETRIEVER_NAME}"
         context = Context(
             messages=messages,
             objects={
@@ -64,22 +67,25 @@ class QueryUnderstanding:
                 "query_reformulation_prompt": query_reformulation_prompt,
             },
         )
-        results = [
-            f"------ Using the following retrievers: {[retriever.RETRIEVER_NAME for retriever in retrievers]} ------",
-        ]
         for retriever in retrievers:
             try:
-                results.append(self._fetch_data(retriever, context))
+                retrieved_data: Results = retriever.retrieve(context)
+                result_text = f"Retrieved data from {retriever.RETRIEVER_NAME}:\n{retrieved_data}"
+                yield result_text
             except Exception as e:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
-        result_text = "\n".join(results)
-        result_text += self._get_job_information(job)
-        result_text += self._get_freelancer_information(freelancers)
         if summarize_results:
-            context.objects["results"] = result_text
-            result_text = self.summarizer.summarize(context)
-        result_text += self._enforce_rag_instruction()
-        return result_text
+            context.objects["results"] = "\n".join(context.objects.get("results", []))
+            summary = self.summarizer.summarize(context)
+            yield summary
+        job_info = self._get_job_information(job)
+        if job_info:
+            yield job_info
+        freelancer_info = self._get_freelancer_information(freelancers)
+        if freelancer_info:
+            yield freelancer_info
+        instruction = self._enforce_rag_instruction()
+        yield instruction
 
     def _get_messages(self, conversation: Conversation) -> list[dict]:
         """
