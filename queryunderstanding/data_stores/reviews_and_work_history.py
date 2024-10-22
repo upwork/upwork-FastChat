@@ -19,9 +19,10 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
         return Results(objects=objects)
 
     def _get_reviews(self, context) -> Results:
-        freelancer_ids = [
-            freelancer["person_id"] for freelancer in context.objects["freelancers"]
-        ]
+        freelancers = {
+            freelancer["person_id"]: freelancer["name"]
+            for freelancer in context.objects["freelancers"]
+        }
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_review_umrlarge_non_nested",
@@ -29,7 +30,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             "search_type": "filtered_vector_search",
             "filter_field_name": "PERSON_ID",
             "top_k": 5,
-            "filter_field_values": freelancer_ids,
+            "filter_field_values": list(freelancers.keys()),
             "query": query,
         }
         response = self._make_request(payload)
@@ -38,6 +39,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
                 "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["PROVIDER_COMMENT"],
                 "distance": response["distance"],
+                "name": freelancers[str(response["source_document"]["PERSON_ID"])],
             }
             for response in response["responses"]
         ]
@@ -45,9 +47,10 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
         return sorted_results
 
     def _get_job_history(self, context) -> Results:
-        freelancer_ids = [
-            freelancer["person_id"] for freelancer in context.objects["freelancers"]
-        ]
+        freelancers = {
+            freelancer["person_id"]: freelancer["name"]
+            for freelancer in context.objects["freelancers"]
+        }
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_history_umrlarge_non_nested",
@@ -55,7 +58,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             "search_type": "filtered_vector_search",
             "filter_field_name": "PERSON_ID",
             "top_k": 10,
-            "filter_field_values": freelancer_ids,
+            "filter_field_values": list(freelancers.keys()),
             "query": query,
         }
         response = self._make_request(payload)
@@ -64,6 +67,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
                 "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["CONCAT_POST_TITLE_DESC"],
                 "distance": response["distance"],
+                "name": freelancers[str(response["source_document"]["PERSON_ID"])],
             }
             for response in response["responses"]
         ]

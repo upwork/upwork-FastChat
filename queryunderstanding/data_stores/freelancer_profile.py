@@ -18,9 +18,10 @@ class FreelancerProfileSemanticSearch(DataStore):
 
     def _get_profile_results(self, context) -> list:
         query = context.objects["query"]
-        freelancer_ids = [
-            freelancer["person_id"] for freelancer in context.objects["freelancers"]
-        ]
+        freelancers = {
+            freelancer["person_id"]: freelancer["name"]
+            for freelancer in context.objects["freelancers"]
+        }
         payload = {
             "index_name": "freelancer_profile_umrlarge_non_nested_demo",
             "field_to_search": "chunks_embeddings",
@@ -28,13 +29,14 @@ class FreelancerProfileSemanticSearch(DataStore):
             "top_k": 10,
             "query": query,
             "filter_field_name": "person_id",
-            "filter_field_values": freelancer_ids,
+            "filter_field_values": list(freelancers.keys()),
         }
         response = self._make_request(payload)
         results = [
             {
                 "content": response["source_document"]["chunks"],
                 "distance": response["distance"],
+                "name": freelancers[str(response["source_document"]["person_id"])],
             }
             for response in response["responses"]
         ]
