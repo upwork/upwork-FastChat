@@ -19,3 +19,4 @@ Examples:
 - "What were the top 3 projects this freelancer worked on?" -> ["Reviews and Work History Semantic Search", "Knowledge Graph"]
 - "How can I send an Offer to the freelancer?" -> ["Help Center Semantic Search"]
 - "What are the key skills mentioned in this freelancer's profile?" -> ["Freelancer Profile Semantic Search"]
+- "Did they have good past feedbacks on Excel usage?" -> ["Reviews and Work History Semantic Search"]
