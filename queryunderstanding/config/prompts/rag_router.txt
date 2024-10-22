@@ -7,6 +7,10 @@ Return the retriever name(s) as a JSON list.
 - "Help Center Semantic Search" - Contains information about the Upwork's platform.
 - "Freelancer Profile Semantic Search" - Contains detailed information about freelancer profiles, including skills, experience, and portfolio.
 
+Any interaction asking for skills, hourly rate, success scores, contract aggregations, etc. should use the Knowledge Graph.
+
+Try to use as many tools as possible to ensure the full context is retrieved and there are fallbacks for retrieval failures.
+
 Examples:
 - How many active contracts does X have? -> ["Knowledge Graph"]
 - How many of the person's previous jobs needed GenAI skills? -> ["Reviews and Work History Semantic Search", "Knowledge Graph"]
