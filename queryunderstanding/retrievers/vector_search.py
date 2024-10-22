@@ -19,7 +19,9 @@ class VectorSearchRetriever(Retriever):
     def retrieve(self, context: Context) -> Results:
         context.objects["query"] = self._reformulate_query(context)
         logger.info(f"Vector Search Query: {context.objects['query']}")
-        return self.data_store.search(context)
+        results = self.data_store.search(context)
+        results.debug = {"query": context.objects["query"]}
+        return results
 
     def _reformulate_query(self, context: Context) -> str:
         full_conversation = " ".join(
