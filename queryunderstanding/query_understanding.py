@@ -8,7 +8,6 @@ from .retrievers import knowledge_graph, vector_search
 from .data_stores import help_center, reviews_and_work_history, freelancer_profile
 from .summarizer import ResultsSummarizer
 from .tool_router import ToolRouter
-from .utils import load_prompt
 
 logger = getLogger(__name__)
 
