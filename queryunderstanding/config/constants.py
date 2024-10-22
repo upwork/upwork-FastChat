@@ -8,7 +8,7 @@ KG_LLM_MODEL = "gpt-4o"
 RAG_ROUTER_LLM = "gpt-4o"
 
 # Default UMA RAG LLM
-DEFAULT_RAG_LLM = "fireworks-llama-3.1-70b-instruct"
+DEFAULT_RAG_LLM = "fireworks-llama-umami"
 
 # Knowledge Graph
 # # Neptune
