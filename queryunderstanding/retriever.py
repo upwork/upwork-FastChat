@@ -14,6 +14,7 @@ class Context:
 @dataclass
 class Results:
     objects: list[dict]
+    debug: dict = None
 
 
 class Retriever(ABC):
