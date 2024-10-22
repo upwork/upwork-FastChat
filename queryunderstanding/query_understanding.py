@@ -131,6 +131,8 @@ class QueryUnderstanding:
         """
         Gets the information of the job.
         """
+        if not job:
+            return ""
         return (
             f"\n\n### Job Information\n\n"
             f"Title: {job['title']}\n\n"
@@ -141,6 +143,8 @@ class QueryUnderstanding:
         """
         Gets the information of the freelancers.
         """
+        if not freelancers:
+            return ""
         freelancer_info = []
         for freelancer in freelancers:
             freelancer_info.append(f"Name: {freelancer['name']}\n")
