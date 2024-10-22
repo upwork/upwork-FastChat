@@ -18,12 +18,17 @@ class FreelancerProfileSemanticSearch(DataStore):
 
     def _get_profile_results(self, context) -> list:
         query = context.objects["query"]
+        freelancer_ids = [
+            freelancer["person_id"] for freelancer in context.objects["freelancers"]
+        ]
         payload = {
             "index_name": "freelancer_profile_umrlarge_non_nested_demo",
             "field_to_search": "chunks_embeddings",
-            "search_type": "vector_search",
+            "search_type": "filtered_vector_search",
             "top_k": 5,
             "query": query,
+            "filter_field_name": "PERSON_ID",
+            "filter_field_values": freelancer_ids,
         }
         response = self._make_request(payload)
         results = [
