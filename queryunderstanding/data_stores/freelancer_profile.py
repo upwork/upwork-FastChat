@@ -27,7 +27,7 @@ class FreelancerProfileSemanticSearch(DataStore):
             "search_type": "filtered_vector_search",
             "top_k": 10,
             "query": query,
-            "filter_field_name": "PERSON_ID",
+            "filter_field_name": "person_id",
             "filter_field_values": freelancer_ids,
         }
         response = self._make_request(payload)
