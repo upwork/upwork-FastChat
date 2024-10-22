@@ -1,6 +1,10 @@
-from ..retriever import Retriever, Context, Results
-from ..utils import load_prompt, llm_client
+from logging import getLogger
+
 from ..config.constants import QUERY_REFORMULATION_LLM
+from ..retriever import Context, Results, Retriever
+from ..utils import llm_client, load_prompt
+
+logger = getLogger(__name__)
 
 
 class VectorSearchRetriever(Retriever):
@@ -14,6 +18,7 @@ class VectorSearchRetriever(Retriever):
 
     def retrieve(self, context: Context) -> Results:
         context.objects["query"] = self._reformulate_query(context)
+        logger.info(f"Vector Search Query: {context.objects['query']}")
         return self.data_store.search(context)
 
     def _reformulate_query(self, context: Context) -> str:
@@ -24,8 +29,8 @@ class VectorSearchRetriever(Retriever):
             full_conversation += (
                 f"\n\n### Job Information\n\n"
                 f"Title: {context.objects['job']['title']}\n\n"
-            f"Description: {context.objects['job']['description']}"
-        )
+                f"Description: {context.objects['job']['description']}"
+            )
         response = llm_client.chat.completions.create(
             model=QUERY_REFORMULATION_LLM,
             messages=[
