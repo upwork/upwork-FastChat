@@ -125,7 +125,7 @@ class QueryUnderstanding:
             list[dict[str, str]]: The messages of the current conversation
         """
         messages = []
-        for message in conversation.messages[:-1]:
+        for message in conversation.messages:
             role = message[0]
             text = message[1]
             messages.append({"role": role, "content": text})
