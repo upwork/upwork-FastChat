@@ -67,6 +67,10 @@ class QueryUnderstanding:
                 "query_reformulation_prompt": query_reformulation_prompt,
             },
         )
+        retrievers = self._choose_retrievers(context)
+        yield "Using the following retrievers:"
+        for retriever in retrievers:
+            yield f"- {retriever.RETRIEVER_NAME}"
         for retriever in retrievers:
             try:
                 retrieved_data: Results = retriever.retrieve(context)
