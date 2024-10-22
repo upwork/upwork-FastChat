@@ -22,7 +22,7 @@ class FreelancerProfileSemanticSearch(DataStore):
             "index_name": "freelancer_profile_umrlarge_non_nested_demo",
             "field_to_search": "chunks_embeddings",
             "search_type": "vector_search",
-            "top_k": 10,
+            "top_k": 5,
             "query": query,
         }
         response = self._make_request(payload)
