@@ -17,7 +17,7 @@ class HelpCenterSemanticSearch(DataStore):
         return Results(objects=qa_results)
 
     def _get_qa_results(self, context) -> list:
-        query = context.messages[-1]["content"]
+        query = context.objects["query"]
         payload = {
             "index_name": "zendesk_q&a_umrlarge_non_nested",
             "field_to_search": "chunks_embeddings",
