@@ -18,9 +18,10 @@ class VectorSearchRetriever(Retriever):
         full_conversation = " ".join(
             [message["content"] for message in context.messages]
         )
-        full_conversation += (
-            f"\n\n### Job Information\n\n"
-            f"Title: {context.objects['job']['title']}\n\n"
+        if context.objects["job"]:
+            full_conversation += (
+                f"\n\n### Job Information\n\n"
+                f"Title: {context.objects['job']['title']}\n\n"
             f"Description: {context.objects['job']['description']}"
         )
         response = llm_client.chat.completions.create(
