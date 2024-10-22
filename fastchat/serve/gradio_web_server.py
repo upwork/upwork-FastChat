@@ -49,6 +49,7 @@ from fastchat.utils import (
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
 from queryunderstanding.utils import load_prompt
+from queryunderstanding.config.constants import DEFAULT_RAG_LLM
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -1400,11 +1401,8 @@ function copy(share_str) {
             )
 
         # Update the model and system prompt
-        new_model_name = "fireworks-llama-3.1-70b-instruct"
-        new_system_message = (
-            "Use the retrieved data to answer questions about the freelancers who applied for a job at Upwork. "
-            "You are Uma (Upwork's Mindful AI) and you give concise valuable answers and ask for clarification whenever necessary."
-        )
+        new_model_name = DEFAULT_RAG_LLM
+        new_system_message = load_prompt("rag_system_prompt.txt")
 
         # Update the state with the new model and system prompt
         state.model_name = new_model_name
