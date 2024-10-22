@@ -44,10 +44,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             for response in response["responses"]
         ]
         results = [
-            {
-                "content": result["content"],
-                "name": result["name"],
-            }
+            {"name": result["name"], "content": result["content"]}
             for result in sorted(results, key=lambda x: x["distance"], reverse=True)
         ]
         return results
@@ -77,10 +74,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             for response in response["responses"]
         ]
         results = [
-            {
-                "content": result["content"],
-                "name": result["name"],
-            }
+            {"name": result["name"], "content": result["content"]}
             for result in sorted(results, key=lambda x: x["distance"], reverse=True)
         ]
         return results
