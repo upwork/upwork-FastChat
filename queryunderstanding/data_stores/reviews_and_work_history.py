@@ -9,9 +9,8 @@ HEADERS = {
 logger = logging.getLogger(__name__)
 
 
-class RemoteOpenSearch(DataStore):
-    def connect(self):
-        pass
+class ReviewsAndWorkHistorySemanticSearch(DataStore):
+    DATA_STORE_NAME = "Reviews and Work History"
 
     def search(self, context) -> Results:
         reviews = self._get_reviews(context)
@@ -20,20 +19,23 @@ class RemoteOpenSearch(DataStore):
         return Results(objects=objects)
 
     def _get_reviews(self, context) -> Results:
-        freelancer_ids = [freelancer["person_id"] for freelancer in context.objects["freelancers"]]
+        freelancer_ids = [
+            freelancer["person_id"] for freelancer in context.objects["freelancers"]
+        ]
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_review_umrlarge_non_nested",
             "field_to_search": "PROVIDER_COMMENT_EMBEDDINGS",
             "search_type": "filtered_vector_search",
             "filter_field_name": "PERSON_ID",
-            "top_k": 10,
+            "top_k": 5,
             "filter_field_values": freelancer_ids,
             "query": query,
         }
         response = self._make_request(payload)
         results = [
             {
+                "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["PROVIDER_COMMENT"],
                 "distance": response["distance"],
             }
@@ -43,7 +45,9 @@ class RemoteOpenSearch(DataStore):
         return sorted_results
 
     def _get_job_history(self, context) -> Results:
-        freelancer_ids = [freelancer["person_id"] for freelancer in context.objects["freelancers"]]
+        freelancer_ids = [
+            freelancer["person_id"] for freelancer in context.objects["freelancers"]
+        ]
         query = context.objects["query"]
         payload = {
             "index_name": "freelancer_job_history_umrlarge_non_nested",
@@ -57,6 +61,7 @@ class RemoteOpenSearch(DataStore):
         response = self._make_request(payload)
         results = [
             {
+                "person_id": response["source_document"]["PERSON_ID"],
                 "content": response["source_document"]["CONCAT_POST_TITLE_DESC"],
                 "distance": response["distance"],
             }

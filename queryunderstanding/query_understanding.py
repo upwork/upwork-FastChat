@@ -1,10 +1,11 @@
-import json
 from logging import getLogger
+from typing import Generator
 
 from fastchat.conversation import Conversation
 
 from .retriever import Context, Results, Retriever
 from .retrievers import knowledge_graph, vector_search
+from .data_stores import help_center, reviews_and_work_history, freelancer_profile
 from .summarizer import ResultsSummarizer
 from .tool_router import ToolRouter
 from .utils import load_prompt
@@ -13,7 +14,15 @@ logger = getLogger(__name__)
 
 DEFAULT_RETRIEVERS = {
     "Knowledge Graph": knowledge_graph.KnowledgeGraphRetriever(),
-    "Vector Search": vector_search.VectorSearchRetriever(),
+    "Reviews and Work History Semantic Search": vector_search.VectorSearchRetriever(
+        reviews_and_work_history.ReviewsAndWorkHistorySemanticSearch()
+    ),
+    "Help Center Semantic Search": vector_search.VectorSearchRetriever(
+        help_center.HelpCenterSemanticSearch()
+    ),
+    "Freelancer Profile Semantic Search": vector_search.VectorSearchRetriever(
+        freelancer_profile.FreelancerProfileSemanticSearch()
+    ),
 }
 
 
@@ -30,7 +39,12 @@ class QueryUnderstanding:
         freelancers: list[dict[str, str]],
         job: dict[str, str],
         enforce_rag: str | None = None,
-    ) -> str:
+        text2cypher_prompt: str | None = None,
+        query_reformulation_prompt: str | None = None,
+        rag_router_prompt: str | None = None,
+        enforce_rag_instruction_prompt: str | None = None,
+        results_summarizer_prompt: str | None = None,
+    ) -> Generator[str, None, None]:
         """
         Searches for information relevant to the current conversation.
 
@@ -40,32 +54,47 @@ class QueryUnderstanding:
         Returns:
             list[dict]: The objects retrieved from the data store.
         """
-        messages: list[dict[str, str]] = self._get_messages(conversation)
-        logger.info(f"Query Understanding Messages: {messages}")
-        retrievers = self._choose_retrievers(messages, enforce_rag)
+        messages = self._get_messages(conversation)
         context = Context(
             messages=messages,
             objects={
                 "freelancers": freelancers,
                 "job": job,
             },
+            parameters={
+                "text2cypher_prompt": text2cypher_prompt,
+                "query_reformulation_prompt": query_reformulation_prompt,
+                "rag_router_prompt": rag_router_prompt,
+                "enforce_rag_instruction_prompt": enforce_rag_instruction_prompt,
+                "results_summarizer_prompt": results_summarizer_prompt,
+                "enforce_rag": enforce_rag,
+            },
         )
-        results = [
-            f">>>>>>>>> Using the following retrievers: {[retriever.RETRIEVER_NAME for retriever in retrievers]} <<<<<<<",
-        ]
+        retrievers = self._choose_retrievers(context)
+        yield "Using the following retrievers:"
+        for retriever in retrievers:
+            yield f"- {retriever.RETRIEVER_NAME}"
         for retriever in retrievers:
             try:
-                results.append(self._fetch_data(retriever, context))
+                retrieved_data: Results = retriever.retrieve(context)
+                result_text = (
+                    f"Retrieved data from {retriever.RETRIEVER_NAME}:\n{retrieved_data}"
+                )
+                yield result_text
             except Exception as e:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
-        result_text = "\n".join(results)
-        result_text += self._get_job_information(job)
-        result_text += self._get_freelancer_information(freelancers)
         if summarize_results:
-            context.objects["results"] = result_text
-            result_text = self.summarizer.summarize(context)
-        result_text += self._enforce_rag_instruction()
-        return result_text
+            context.objects["results"] = "\n".join(context.objects.get("results", []))
+            summary = self.summarizer.summarize(context)
+            yield summary
+        job_info = self._get_job_information(context)
+        if job_info:
+            yield job_info
+        freelancer_info = self._get_freelancer_information(context)
+        if freelancer_info:
+            yield freelancer_info
+        instruction = self._enforce_rag_instruction(context)
+        yield instruction
 
     def _get_messages(self, conversation: Conversation) -> list[dict]:
         """
@@ -84,26 +113,24 @@ class QueryUnderstanding:
             messages.append({"role": role, "content": text})
         return messages
 
-    def _choose_retrievers(
-        self, messages: list[dict[str, str]], enforce_rag: str | None = None
-    ) -> list[Retriever]:
+    def _choose_retrievers(self, context: Context) -> list[Retriever]:
         """
         Chooses the retrievers that are most relevant to the current conversation.
 
         Args:
-            messages (list[dict[str, str]]): The messages of the current conversation
+            context (Context): The context of the current conversation
 
         Returns:
             list[Retriever]: The retrievers that are most relevant to the current conversation
         """
-        if enforce_rag in self.retrievers:
-            return [self.retrievers[enforce_rag]]
-        elif enforce_rag == "Hybrid":
+        if context.parameters["enforce_rag"] in self.retrievers:
+            return [self.retrievers[context.parameters["enforce_rag"]]]
+        elif context.parameters["enforce_rag"] == "Hybrid":
             return self.retrievers.values()
-        elif enforce_rag == "Context-Aware":
-            return self.tool_router.choose(messages)
+        elif context.parameters["enforce_rag"] == "Context-Aware":
+            return self.tool_router.choose(context)
         else:
-            raise ValueError(f"Invalid RAG value: {enforce_rag}")
+            raise ValueError(f"Invalid RAG value: {context.parameters['enforce_rag']}")
 
     def _fetch_data(self, retriever: Retriever, context: Context) -> str:
         """
@@ -122,10 +149,11 @@ class QueryUnderstanding:
         {retrieved_data}
         """
 
-    def _get_job_information(self, job: dict[str, str]) -> str:
+    def _get_job_information(self, context: Context) -> str:
         """
         Gets the information of the job.
         """
+        job = context.objects.get("job")
         if not job:
             return ""
         return (
@@ -134,10 +162,11 @@ class QueryUnderstanding:
             f"Description: {job['description']}"
         )
 
-    def _get_freelancer_information(self, freelancers: list[dict[str, str]]) -> str:
+    def _get_freelancer_information(self, context: Context) -> str:
         """
         Gets the information of the freelancers.
         """
+        freelancers = context.objects.get("freelancers")
         if not freelancers:
             return ""
         freelancer_info = []
@@ -146,8 +175,9 @@ class QueryUnderstanding:
             freelancer_info.append(f"Title: {freelancer['title']}\n")
         return f"\n\n### Freelancer Information\n\nFreelancers:\n{freelancer_info}"
 
-    def _enforce_rag_instruction(self) -> str:
+    def _enforce_rag_instruction(self, context: Context) -> str:
         """
         Enforces the RAG instruction.
         """
-        return "\n\n" + load_prompt("enforce_rag_instruction.txt")
+        prompt = context.parameters["enforce_rag_instruction_prompt"]
+        return "\n\n" + prompt

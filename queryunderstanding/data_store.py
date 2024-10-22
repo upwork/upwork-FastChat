@@ -2,17 +2,6 @@ from abc import ABC, abstractmethod
 
 
 class DataStore(ABC):
-    def __init__(self):
-        self.client = self.connect()
-
-    @abstractmethod
-    def connect(self):
-        """
-        Connects to the data store.
-        This can be a local endpoint or a remote endpoint, as an example.
-        """
-        pass
-
     @abstractmethod
     def search(
         self,

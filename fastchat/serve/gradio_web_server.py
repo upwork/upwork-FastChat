@@ -48,6 +48,7 @@ from fastchat.utils import (
     load_image,
 )
 from queryunderstanding.query_understanding import QueryUnderstanding
+from queryunderstanding.utils import load_prompt
 
 logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
@@ -586,23 +587,42 @@ def generate_turn(
     summarize_results=False,
     job_state=None,
     freelancers_state=None,
+    text2cypher_prompt=None,
+    query_reformulation_prompt=None,
+    rag_router_prompt=None,
+    enforce_rag_instruction_prompt=None,
+    results_summarizer_prompt=None,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
-    conv.append_message(role, None)
-    model_api_dict = api_endpoint_info.get(model_name, None)
-    images = conv.get_images()
 
+    html_code = "▌"
     if rag:
-        retrieved_context = query_understanding.search(
+        conv.append_message(state.conv.roles[3], "Retrieving relevant information...")
+        for retrieved_context in query_understanding.search(
             conv,
+            summarize_results=summarize_results,
             freelancers=freelancers_state,
             job=job_state,
             enforce_rag=rag,
-            summarize_results=summarize_results,
-        )
-        conv.update_last_message(retrieved_context)
+            text2cypher_prompt=text2cypher_prompt,
+            query_reformulation_prompt=query_reformulation_prompt,
+            rag_router_prompt=rag_router_prompt,
+            enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
+            results_summarizer_prompt=results_summarizer_prompt,
+        ):
+            current_message = conv.messages[-1][1]
+            current_message = current_message.replace(html_code, "")
+            current_message += f"\n{retrieved_context}"
+            current_message += html_code
+            conv.update_last_message(current_message)
+            yield (state, state.to_gradio_chatbot()) + (disable_btn,) * 6
+        conv.update_last_message(current_message.replace(html_code, ""))
         return
+
+    conv.append_message(role, None)
+    model_api_dict = api_endpoint_info.get(model_name, None)
+    images = conv.get_images()
 
     if model_api_dict is None:
         # Query worker address
@@ -674,9 +694,6 @@ def generate_turn(
             state,
             stream=stream,
         )
-
-    # html_code = ' <span class="cursor"></span> '
-    html_code = "▌"
 
     # conv.update_last_message("▌")
     conv.update_last_message(html_code)
@@ -772,6 +789,11 @@ def bot_response(
     summarize_results,
     job_state,
     freelancers_state,
+    text2cypher_prompt,
+    query_reformulation_prompt,
+    rag_router_prompt,
+    enforce_rag_instruction_prompt,
+    results_summarizer_prompt,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -811,6 +833,11 @@ def bot_response(
             summarize_results=summarize_results,
             job_state=job_state,
             freelancers_state=freelancers_state,
+            text2cypher_prompt=text2cypher_prompt,
+            query_reformulation_prompt=query_reformulation_prompt,
+            rag_router_prompt=rag_router_prompt,
+            enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
+            results_summarizer_prompt=results_summarizer_prompt,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1164,6 +1191,31 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
         summarize_results = gr.Checkbox(value=False, label="Summarize results")
+        text2cypher_prompt = gr.Textbox(
+            label="Text2Cypher Prompt",
+            lines=20,
+            value=load_prompt("text2cypher.txt"),
+        )
+        query_reformulation_prompt = gr.Textbox(
+            label="Query Reformulation Prompt",
+            lines=10,
+            value=load_prompt("query_reformulation.txt"),
+        )
+        rag_router_prompt = gr.Textbox(
+            label="RAG Router Prompt",
+            lines=20,
+            value=load_prompt("rag_router.txt"),
+        )
+        enforce_rag_instruction_prompt = gr.Textbox(
+            label="Enforce RAG Instruction Prompt",
+            lines=20,
+            value=load_prompt("enforce_rag_instruction.txt"),
+        )
+        results_summarizer_prompt = gr.Textbox(
+            label="Results Summarizer Prompt",
+            lines=20,
+            value=load_prompt("results_summarization.txt"),
+        )
 
     if add_promotion_links:
         gr.Markdown(acknowledgment_md, elem_id="ack_markdown")
@@ -1202,6 +1254,11 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             rag_selector,
             job_state,
             freelancers_state,
+            text2cypher_prompt,
+            query_reformulation_prompt,
+            rag_router_prompt,
+            enforce_rag_instruction_prompt,
+            results_summarizer_prompt,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1284,6 +1341,11 @@ function copy(share_str) {
             summarize_results,
             job_state,
             freelancers_state,
+            text2cypher_prompt,
+            query_reformulation_prompt,
+            rag_router_prompt,
+            enforce_rag_instruction_prompt,
+            results_summarizer_prompt,
         ],
         [state, chatbot] + btn_list,
     )

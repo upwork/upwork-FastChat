@@ -1,13 +1,9 @@
-import pandas as pd
-import os
 import logging
 import time
-from datetime import date
 
 from ...config.constants import SCHEMA, KG_LLM_MODEL
-from ...utils import load_prompt, llm_client
-
-today = date.today()
+from ...retriever import Context
+from ...utils import llm_client
 
 # Set up logging
 logging.basicConfig(
@@ -15,25 +11,17 @@ logging.basicConfig(
 )
 
 
-def generate_cypher_query_from_llm(context):
+def generate_cypher_query_from_llm(context: Context) -> str:
     logging.info(f"Generating Cypher query using LLM: {KG_LLM_MODEL}")
 
     start_time = time.time()
 
     try:
-        prompt_template = load_prompt("text2cypher.txt")
-        prompt = prompt_template.format(
-            schema=SCHEMA,
-            messages=context.messages,
-            freelancers=context.objects["freelancers"],
-            today=today,
-        )
         response = llm_client.chat.completions.create(
             model=KG_LLM_MODEL,
-            temperature=0.1,
             messages=[
                 {"role": "system", "content": "You are a text-to-Cypher converter."},
-                {"role": "user", "content": prompt},
+                {"role": "user", "content": context.parameters["text2cypher_prompt"]},
             ],
         )
     except Exception as e:

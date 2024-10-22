@@ -8,6 +8,7 @@ from .data_store import DataStore
 class Context:
     messages: list[dict]
     objects: dict  # Query, Freelancer Id, Job, etc.
+    parameters: dict  # Text2Cypher Prompt, Query Reformulation Prompt, etc.
 
 
 @dataclass

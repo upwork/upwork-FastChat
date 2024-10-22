@@ -5,7 +5,9 @@ from .utils import load_prompt, llm_client
 
 class ResultsSummarizer:
     def summarize(self, context: Context) -> str:
-        prompt_template = load_prompt("results_summarization.txt")
+        prompt_template = context.parameters[
+            "results_summarizer_prompt"
+        ] or load_prompt("results_summarization.txt")
         prompt = prompt_template.format(
             results=context.objects["results"],
             job=context.objects["job"],
