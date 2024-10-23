@@ -82,9 +82,11 @@ class QueryUnderstanding:
                 retrieved_data: Results = await asyncio.to_thread(
                     retriever.retrieve, context
                 )
-                result_text = (
-                    f"Retrieved data from {retriever.RETRIEVER_NAME}:\n{retrieved_data}"
-                )
+                result_text = f"\n\n\nRetrieved data from {retriever.RETRIEVER_NAME}:\n"
+                for result_object in retrieved_data.objects:
+                    result_object = str(result_object).replace("\\n", "")
+                    result_text += f"\n*   | {result_object}"
+                result_text += f"\n\n*   | {retrieved_data.debug}"
                 context.objects["results"].append(result_text)
                 if not summarize_results:
                     return result_text
