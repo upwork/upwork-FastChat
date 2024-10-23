@@ -29,7 +29,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             "field_to_search": "PROVIDER_COMMENT_EMBEDDINGS",
             "search_type": "filtered_vector_search",
             "filter_field_name": "PERSON_ID",
-            "top_k": 5,
+            "top_k": context.parameters["reviews_top_k"],
             "filter_field_values": list(freelancers.keys()),
             "query": query,
         }
@@ -60,7 +60,7 @@ class ReviewsAndWorkHistorySemanticSearch(DataStore):
             "field_to_search": "CONCAT_POST_TITLE_DESC_EMBEDDINGS",
             "search_type": "filtered_vector_search",
             "filter_field_name": "PERSON_ID",
-            "top_k": 10,
+            "top_k": context.parameters["job_history_top_k"],
             "filter_field_values": list(freelancers.keys()),
             "query": query,
         }

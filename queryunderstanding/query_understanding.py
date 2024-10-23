@@ -43,6 +43,10 @@ class QueryUnderstanding:
         rag_router_prompt: str | None = None,
         enforce_rag_instruction_prompt: str | None = None,
         results_summarizer_prompt: str | None = None,
+        help_center_top_k: int = 10,
+        job_history_top_k: int = 10,
+        reviews_top_k: int = 10,
+        profile_top_k: int = 10,
     ) -> Generator[str, None, None]:
         """
         Searches for information relevant to the current conversation.
@@ -68,6 +72,10 @@ class QueryUnderstanding:
                 "enforce_rag_instruction_prompt": enforce_rag_instruction_prompt,
                 "results_summarizer_prompt": results_summarizer_prompt,
                 "enforce_rag": enforce_rag,
+                "help_center_top_k": help_center_top_k,
+                "job_history_top_k": job_history_top_k,
+                "reviews_top_k": reviews_top_k,
+                "profile_top_k": profile_top_k,
             },
         )
         retrievers = self._choose_retrievers(context)

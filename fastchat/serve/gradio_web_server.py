@@ -598,6 +598,10 @@ def generate_turn(
     rag_router_prompt=None,
     enforce_rag_instruction_prompt=None,
     results_summarizer_prompt=None,
+    help_center_top_k=10,
+    reviews_top_k=5,
+    job_history_top_k=10,
+    profile_top_k=10,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -616,6 +620,10 @@ def generate_turn(
             rag_router_prompt=rag_router_prompt,
             enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
             results_summarizer_prompt=results_summarizer_prompt,
+            help_center_top_k=help_center_top_k,
+            reviews_top_k=reviews_top_k,
+            job_history_top_k=job_history_top_k,
+            profile_top_k=profile_top_k,
         ):
             current_message = conv.messages[-1][1]
             current_message = current_message.replace(html_code, "")
@@ -800,6 +808,10 @@ def bot_response(
     rag_router_prompt,
     enforce_rag_instruction_prompt,
     results_summarizer_prompt,
+    reviews_top_k,
+    job_history_top_k,
+    help_center_top_k,
+    profile_top_k,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -844,6 +856,10 @@ def bot_response(
             rag_router_prompt=rag_router_prompt,
             enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
             results_summarizer_prompt=results_summarizer_prompt,
+            reviews_top_k=reviews_top_k,
+            job_history_top_k=job_history_top_k,
+            help_center_top_k=help_center_top_k,
+            profile_top_k=profile_top_k,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1195,6 +1211,38 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             interactive=True,
             label="Max output tokens",
         )
+        reviews_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Reviews top k",
+        )
+        job_history_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Job history top k",
+        )
+        help_center_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Help center top k",
+        )
+        profile_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Freelancer profile top k",
+        )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
         summarize_results = gr.Checkbox(value=False, label="Summarize results")
         text2cypher_prompt = gr.Textbox(
@@ -1265,6 +1313,10 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             rag_router_prompt,
             enforce_rag_instruction_prompt,
             results_summarizer_prompt,
+            reviews_k,
+            job_history_k,
+            help_center_k,
+            profile_k,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1352,6 +1404,10 @@ function copy(share_str) {
             rag_router_prompt,
             enforce_rag_instruction_prompt,
             results_summarizer_prompt,
+            reviews_k,
+            job_history_k,
+            help_center_k,
+            profile_k,
         ],
         [state, chatbot] + btn_list,
     )
