@@ -55,6 +55,8 @@ logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
 headers = {"User-Agent": "FastChat Client"}
 
+DEFAULT_LLM = "fireworks-llama-3.1-70b-instruct"
+
 no_change_btn = gr.Button()
 enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
@@ -238,7 +240,10 @@ def get_model_list(controller_url, register_api_endpoint_file, vision_arena):
 
 
 def load_demo_single(models, url_params):
-    selected_model = models[0] if len(models) > 0 else ""
+    if DEFAULT_LLM in models:
+        selected_model = DEFAULT_LLM
+    else:
+        selected_model = models[0] if len(models) > 0 else ""
     if "model" in url_params:
         model = url_params["model"]
         if model in models:
@@ -593,6 +598,10 @@ def generate_turn(
     rag_router_prompt=None,
     enforce_rag_instruction_prompt=None,
     results_summarizer_prompt=None,
+    help_center_top_k=10,
+    reviews_top_k=5,
+    job_history_top_k=10,
+    profile_top_k=10,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -611,6 +620,10 @@ def generate_turn(
             rag_router_prompt=rag_router_prompt,
             enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
             results_summarizer_prompt=results_summarizer_prompt,
+            help_center_top_k=help_center_top_k,
+            reviews_top_k=reviews_top_k,
+            job_history_top_k=job_history_top_k,
+            profile_top_k=profile_top_k,
         ):
             current_message = conv.messages[-1][1]
             current_message = current_message.replace(html_code, "")
@@ -795,6 +808,10 @@ def bot_response(
     rag_router_prompt,
     enforce_rag_instruction_prompt,
     results_summarizer_prompt,
+    reviews_top_k,
+    job_history_top_k,
+    help_center_top_k,
+    profile_top_k,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -839,6 +856,10 @@ def bot_response(
             rag_router_prompt=rag_router_prompt,
             enforce_rag_instruction_prompt=enforce_rag_instruction_prompt,
             results_summarizer_prompt=results_summarizer_prompt,
+            reviews_top_k=reviews_top_k,
+            job_history_top_k=job_history_top_k,
+            help_center_top_k=help_center_top_k,
+            profile_top_k=profile_top_k,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1190,6 +1211,38 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             interactive=True,
             label="Max output tokens",
         )
+        reviews_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Reviews top k",
+        )
+        job_history_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Job history top k",
+        )
+        help_center_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Help center top k",
+        )
+        profile_k = gr.Slider(
+            minimum=1,
+            maximum=10,
+            value=10,
+            step=1,
+            interactive=True,
+            label="Freelancer profile top k",
+        )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
         summarize_results = gr.Checkbox(value=False, label="Summarize results")
         text2cypher_prompt = gr.Textbox(
@@ -1260,6 +1313,10 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             rag_router_prompt,
             enforce_rag_instruction_prompt,
             results_summarizer_prompt,
+            reviews_k,
+            job_history_k,
+            help_center_k,
+            profile_k,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1347,6 +1404,10 @@ function copy(share_str) {
             rag_router_prompt,
             enforce_rag_instruction_prompt,
             results_summarizer_prompt,
+            reviews_k,
+            job_history_k,
+            help_center_k,
+            profile_k,
         ],
         [state, chatbot] + btn_list,
     )

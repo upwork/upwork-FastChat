@@ -26,7 +26,7 @@ class FreelancerProfileSemanticSearch(DataStore):
             "index_name": "freelancer_profile_umrlarge_non_nested_demo",
             "field_to_search": "chunks_embeddings",
             "search_type": "filtered_vector_search",
-            "top_k": 10,
+            "top_k": context.parameters["profile_top_k"],
             "query": query,
             "filter_field_name": "person_id",
             "filter_field_values": list(freelancers.keys()),
