@@ -55,6 +55,8 @@ logger = build_logger("gradio_web_server", "gradio_web_server.log")
 
 headers = {"User-Agent": "FastChat Client"}
 
+DEFAULT_LLM = "fireworks-llama-3.1-70b-instruct"
+
 no_change_btn = gr.Button()
 enable_btn = gr.Button(interactive=True)
 disable_btn = gr.Button(interactive=False)
@@ -238,7 +240,10 @@ def get_model_list(controller_url, register_api_endpoint_file, vision_arena):
 
 
 def load_demo_single(models, url_params):
-    selected_model = models[0] if len(models) > 0 else ""
+    if DEFAULT_LLM in models:
+        selected_model = DEFAULT_LLM
+    else:
+        selected_model = models[0] if len(models) > 0 else ""
     if "model" in url_params:
         model = url_params["model"]
         if model in models:
