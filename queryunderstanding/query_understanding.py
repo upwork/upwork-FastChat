@@ -99,10 +99,9 @@ class QueryUnderstanding:
             retrieve_context.objects["freelancers"] = target_freelancers
             try:
                 retrieved_data: Results = retriever.retrieve(retrieve_context)
-                result_text = f"\n\n\nRetrieved data from {retriever.RETRIEVER_NAME}:\n"
                 for result_object in retrieved_data.objects:
                     result_object = str(result_object).replace("\\n", "")
-                    result_text += f"\n*   | {result_object}"
+                    result_text = f"\n*   | {result_object}"
                 if debug:
                     result_text += f"\n\n*   | {retrieved_data.debug}"
                 context.objects["results"].append(result_text)
@@ -115,24 +114,43 @@ class QueryUnderstanding:
         retrieval_tasks = itertools.product(
             retrievers, context.objects["target_person_ids"]
         )
+        results_by_freelancer = {
+            person_id: [] for person_id in context.objects["target_person_ids"]
+        }
+
         with ThreadPoolExecutor() as executor:
-            future_to_results = {
-                executor.submit(
-                    fetch_data, retriever, context, person_id
-                ): retriever.RETRIEVER_NAME
+            future_to_task = {
+                executor.submit(fetch_data, retriever, context, person_id): (
+                    retriever,
+                    person_id,
+                )
                 for retriever, person_id in retrieval_tasks
             }
-            for future in tqdm(
-                as_completed(future_to_results),
-                total=len(future_to_results),
-            ):
-                retriever_name = future_to_results[future]
+            for future in tqdm(as_completed(future_to_task), total=len(future_to_task)):
+                retriever, person_id = future_to_task[future]
                 try:
-                    results = future.result()
+                    result = future.result()
+                    if result:
+                        results_by_freelancer[person_id].append(
+                            (retriever.RETRIEVER_NAME, result)
+                        )
                 except Exception as exc:
-                    logger.error(f"{retriever_name} generated an exception: {exc}")
-                if results:
-                    yield results
+                    logger.error(
+                        f"{retriever.RETRIEVER_NAME} generated an exception: {exc}"
+                    )
+
+        for person_id, results in results_by_freelancer.items():
+            freelancer_name = next(
+                (
+                    freelancer["name"]
+                    for freelancer in context.objects["freelancers"]
+                    if freelancer["person_id"] == person_id
+                )
+            )
+            yield f"\n\n# Freelancer {freelancer_name}:"
+            for retriever_name, result in results:
+                yield f"\n## {retriever_name}"
+                yield result
         if summarize_results:
             summary = self.summarizer.summarize(context)
             yield summary
