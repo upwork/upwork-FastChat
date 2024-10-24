@@ -106,11 +106,12 @@ class QueryUnderstanding:
             retrieve_context.objects["freelancers"] = target_freelancers
             try:
                 retrieved_data: Results = retriever.retrieve(retrieve_context)
+                result_text = ""
                 for result_object in retrieved_data.objects:
                     result_object = str(result_object).replace("\\n", "")
-                    result_text = f"\n*   | {result_object}"
+                    result_text += f"\n> {result_object}"
                 if debug:
-                    result_text += f"\n\n*   | {retrieved_data.debug}"
+                    result_text += f"\n\nDEBUG: {retrieved_data.debug}"
                 context.objects["results"].append(result_text)
                 if not summarize_results:
                     return result_text
