@@ -28,6 +28,7 @@ DEFAULT_RETRIEVERS = {
     ),
 }
 
+DEFAULT_TOP_K_FOR_SINGLE_PERSON = 10
 
 class QueryUnderstanding:
     def __init__(self):
@@ -85,6 +86,12 @@ class QueryUnderstanding:
         )
         retrievers, person_ids = self._choose_retrievers(context)
         context.objects["target_person_ids"] = person_ids
+
+        if len(person_ids) == 1:
+            context.parameters["profile_top_k"] = DEFAULT_TOP_K_FOR_SINGLE_PERSON
+            context.parameters["reviews_top_k"] = DEFAULT_TOP_K_FOR_SINGLE_PERSON
+            context.parameters["job_history_top_k"] = DEFAULT_TOP_K_FOR_SINGLE_PERSON
+
         yield "Using the following retrievers:"
         for retriever in retrievers:
             yield f"- {retriever.RETRIEVER_NAME}"

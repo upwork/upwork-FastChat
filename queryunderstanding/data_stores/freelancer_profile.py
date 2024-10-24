@@ -41,10 +41,7 @@ class FreelancerProfileSemanticSearch(DataStore):
             for response in response["responses"]
         ]
         results = [
-            {
-                "name": result["name"],
-                "content": result["content"],
-            }
+            result["content"]
             for result in sorted(results, key=lambda x: x["distance"], reverse=True)
         ]
         return results
