@@ -21,6 +21,7 @@ class Tool(Enum):
 
 class ToolChoice(BaseModel):
     tools: list[Tool]
+    person_ids: list[str]
 
 
 class ToolRouter:
@@ -29,7 +30,15 @@ class ToolRouter:
 
     def choose(self, context: Context) -> list[Retriever]:
         prompt = context.parameters["rag_router_prompt"]
-        prompt = prompt.format(retrievers=", ".join(self.retrievers.keys()))
+        prompt = prompt.format(
+            retrievers=", ".join(self.retrievers.keys()),
+            freelancers="\n".join(
+                [
+                    f"- Person ID: {freelancer['person_id']}, Name: {freelancer['name']}"
+                    for freelancer in context.objects["freelancers"]
+                ]
+            ),
+        )
         response = llm_client.beta.chat.completions.parse(
             model=RAG_ROUTER_LLM,
             messages=[
@@ -53,7 +62,7 @@ class ToolRouter:
         retrievers = [
             self.retrievers[name] for name in tools_names if name in self.retrievers
         ]
-        return retrievers
+        return retrievers, response.choices[0].message.parsed.person_ids
 
     def _apply_rules(self, context: Context, tools_names: list[str]) -> list[str]:
         messages = context.messages

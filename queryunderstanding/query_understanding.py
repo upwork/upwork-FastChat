@@ -1,5 +1,9 @@
 from logging import getLogger
 from typing import Generator
+from copy import deepcopy
+import itertools
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 from fastchat.conversation import Conversation
 
@@ -24,6 +28,7 @@ DEFAULT_RETRIEVERS = {
     ),
 }
 
+DEFAULT_TOP_K_FOR_SINGLE_PERSON = 10
 
 class QueryUnderstanding:
     def __init__(self):
@@ -79,22 +84,31 @@ class QueryUnderstanding:
                 "profile_top_k": profile_top_k,
             },
         )
-        retrievers = self._choose_retrievers(context)
+        retrievers, person_ids = self._choose_retrievers(context)
+        context.objects["target_person_ids"] = person_ids
+
+        if len(person_ids) == 1:
+            context.parameters["profile_top_k"] = DEFAULT_TOP_K_FOR_SINGLE_PERSON
+            context.parameters["reviews_top_k"] = DEFAULT_TOP_K_FOR_SINGLE_PERSON
+            context.parameters["job_history_top_k"] = DEFAULT_TOP_K_FOR_SINGLE_PERSON
+
         yield "Using the following retrievers:"
         for retriever in retrievers:
             yield f"- {retriever.RETRIEVER_NAME}"
-        import asyncio
-        import concurrent.futures
 
-        async def fetch_data(retriever, context):
+        def fetch_data(retriever, context, person_id):
+            target_freelancers = [
+                freelancer
+                for freelancer in context.objects["freelancers"]
+                if freelancer["person_id"] == person_id
+            ]
+            retrieve_context = deepcopy(context)
+            retrieve_context.objects["freelancers"] = target_freelancers
             try:
-                retrieved_data: Results = await asyncio.to_thread(
-                    retriever.retrieve, context
-                )
-                result_text = f"\n\n\nRetrieved data from {retriever.RETRIEVER_NAME}:\n"
+                retrieved_data: Results = retriever.retrieve(retrieve_context)
                 for result_object in retrieved_data.objects:
                     result_object = str(result_object).replace("\\n", "")
-                    result_text += f"\n*   | {result_object}"
+                    result_text = f"\n*   | {result_object}"
                 if debug:
                     result_text += f"\n\n*   | {retrieved_data.debug}"
                 context.objects["results"].append(result_text)
@@ -104,18 +118,45 @@ class QueryUnderstanding:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
                 return None
 
-        async def run_tasks(retrievers, context):
-            tasks = [fetch_data(retriever, context) for retriever in retrievers]
-            return await asyncio.gather(*tasks)
+        retrieval_tasks = itertools.product(
+            retrievers, context.objects["target_person_ids"]
+        )
+        results_by_freelancer = {
+            person_id: [] for person_id in context.objects["target_person_ids"]
+        }
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            results = loop.run_until_complete(run_tasks(retrievers, context))
-            loop.close()
+        with ThreadPoolExecutor() as executor:
+            future_to_task = {
+                executor.submit(fetch_data, retriever, context, person_id): (
+                    retriever,
+                    person_id,
+                )
+                for retriever, person_id in retrieval_tasks
+            }
+            for future in tqdm(as_completed(future_to_task), total=len(future_to_task)):
+                retriever, person_id = future_to_task[future]
+                try:
+                    result = future.result()
+                    if result:
+                        results_by_freelancer[person_id].append(
+                            (retriever.RETRIEVER_NAME, result)
+                        )
+                except Exception as exc:
+                    logger.error(
+                        f"{retriever.RETRIEVER_NAME} generated an exception: {exc}"
+                    )
 
-        for result in results:
-            if result:
+        for person_id, results in results_by_freelancer.items():
+            freelancer_name = next(
+                (
+                    freelancer["name"]
+                    for freelancer in context.objects["freelancers"]
+                    if freelancer["person_id"] == person_id
+                )
+            )
+            yield f"\n\n# Freelancer {freelancer_name}:"
+            for retriever_name, result in results:
+                yield f"\n## {retriever_name}"
                 yield result
         if summarize_results:
             summary = self.summarizer.summarize(context)
@@ -143,7 +184,7 @@ class QueryUnderstanding:
             messages.append({"role": role, "content": text})
         return messages
 
-    def _choose_retrievers(self, context: Context) -> list[Retriever]:
+    def _choose_retrievers(self, context: Context) -> tuple[list[Retriever], list[str]]:
         """
         Chooses the retrievers that are most relevant to the current conversation.
 
@@ -154,13 +195,26 @@ class QueryUnderstanding:
             list[Retriever]: The retrievers that are most relevant to the current conversation
         """
         if context.parameters["enforce_rag"] in self.retrievers:
-            return [self.retrievers[context.parameters["enforce_rag"]]]
+            retrievers, freelancers = (
+                [self.retrievers[context.parameters["enforce_rag"]]],
+                [
+                    freelancer["person_id"]
+                    for freelancer in context.objects["freelancers"]
+                ],
+            )
         elif context.parameters["enforce_rag"] == "Hybrid":
-            return self.retrievers.values()
+            retrievers, freelancers = (
+                self.retrievers.values(),
+                [
+                    freelancer["person_id"]
+                    for freelancer in context.objects["freelancers"]
+                ],
+            )
         elif context.parameters["enforce_rag"] == "Context-Aware":
-            return self.tool_router.choose(context)
+            retrievers, freelancers = self.tool_router.choose(context)
         else:
             raise ValueError(f"Invalid RAG value: {context.parameters['enforce_rag']}")
+        return retrievers, freelancers
 
     def _fetch_data(self, retriever: Retriever, context: Context) -> str:
         """

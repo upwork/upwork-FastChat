@@ -19,6 +19,7 @@ class KnowledgeGraphRetriever(Retriever):
             messages=context.messages,
             freelancers=context.objects["freelancers"],
             today=date.today(),
+            job=context.objects["job"],
         )
         context.parameters["text2cypher_prompt"] = prompt
         generated_cypher = generate_cypher_query_from_llm(context)
