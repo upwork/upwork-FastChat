@@ -1,5 +1,6 @@
 from logging import getLogger
 from typing import Generator
+from copy import deepcopy
 
 from fastchat.conversation import Conversation
 
@@ -79,17 +80,25 @@ class QueryUnderstanding:
                 "profile_top_k": profile_top_k,
             },
         )
-        retrievers = self._choose_retrievers(context)
+        retrievers, person_ids = self._choose_retrievers(context)
+        context.objects["target_person_ids"] = person_ids
         yield "Using the following retrievers:"
         for retriever in retrievers:
             yield f"- {retriever.RETRIEVER_NAME}"
         import asyncio
         import concurrent.futures
 
-        async def fetch_data(retriever, context):
+        async def fetch_data(retriever, context, person_id):
+            target_freelancers = [
+                freelancer
+                for freelancer in context.objects["freelancers"]
+                if freelancer["person_id"] == person_id
+            ]
+            retrieve_context = deepcopy(context)
+            retrieve_context.objects["freelancers"] = target_freelancers
             try:
                 retrieved_data: Results = await asyncio.to_thread(
-                    retriever.retrieve, context
+                    retriever.retrieve, retrieve_context
                 )
                 result_text = f"\n\n\nRetrieved data from {retriever.RETRIEVER_NAME}:\n"
                 for result_object in retrieved_data.objects:
@@ -105,7 +114,12 @@ class QueryUnderstanding:
                 return None
 
         async def run_tasks(retrievers, context):
-            tasks = [fetch_data(retriever, context) for retriever in retrievers]
+            tasks = [
+                fetch_data(retriever, context, person_id)
+                for retriever, person_id in zip(
+                    retrievers, context.objects["target_person_ids"]
+                )
+            ]
             return await asyncio.gather(*tasks)
 
         with concurrent.futures.ThreadPoolExecutor() as executor:
@@ -143,7 +157,7 @@ class QueryUnderstanding:
             messages.append({"role": role, "content": text})
         return messages
 
-    def _choose_retrievers(self, context: Context) -> list[Retriever]:
+    def _choose_retrievers(self, context: Context) -> tuple[list[Retriever], list[str]]:
         """
         Chooses the retrievers that are most relevant to the current conversation.
 
@@ -154,13 +168,26 @@ class QueryUnderstanding:
             list[Retriever]: The retrievers that are most relevant to the current conversation
         """
         if context.parameters["enforce_rag"] in self.retrievers:
-            return [self.retrievers[context.parameters["enforce_rag"]]]
+            retrievers, freelancers = (
+                [self.retrievers[context.parameters["enforce_rag"]]],
+                [
+                    freelancer["person_id"]
+                    for freelancer in context.objects["freelancers"]
+                ],
+            )
         elif context.parameters["enforce_rag"] == "Hybrid":
-            return self.retrievers.values()
+            retrievers, freelancers = (
+                self.retrievers.values(),
+                [
+                    freelancer["person_id"]
+                    for freelancer in context.objects["freelancers"]
+                ],
+            )
         elif context.parameters["enforce_rag"] == "Context-Aware":
-            return self.tool_router.choose(context)
+            retrievers, freelancers = self.tool_router.choose(context)
         else:
             raise ValueError(f"Invalid RAG value: {context.parameters['enforce_rag']}")
+        return retrievers, freelancers
 
     def _fetch_data(self, retriever: Retriever, context: Context) -> str:
         """

@@ -11,6 +11,10 @@ Any interaction asking for skills, hourly rate, success scores, contract aggrega
 
 Try to use as many tools as possible to ensure the full context is retrieved and there are fallbacks for retrieval failures.
 
+Also provide the person_ids that should be used in subsequent function calls. If the user is asking about a single freelancer, only they should be provided in the person_ids, but if it's a comparison between multiple freelancers, all freelancers should be included.
+
+{freelancers}
+
 Examples:
 - How many active contracts does X have? -> ["Knowledge Graph"]
 - How many of the person's previous jobs needed GenAI skills? -> ["Reviews and Work History Semantic Search", "Knowledge Graph"]
