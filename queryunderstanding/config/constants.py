@@ -2,7 +2,7 @@
 LLM_CLIENT = "openai"
 QUERY_REFORMULATION_LLM = "gpt-4o"
 SUMMARIZATION_LLM = "gpt-4o"
-KG_LLM_MODEL = "gpt-4o"
+KG_LLM_MODEL = "gpt-4-0125-preview"
 
 # RAG Router
 RAG_ROUTER_LLM = "gpt-4o"
