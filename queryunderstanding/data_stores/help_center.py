@@ -34,7 +34,9 @@ class HelpCenterSemanticSearch(DataStore):
             for response in response["responses"]
         ]
         results = [
-            result["content"]
+            {
+                "content": result["content"],
+            }
             for result in sorted(results, key=lambda x: x["distance"], reverse=True)
         ]
         return results
