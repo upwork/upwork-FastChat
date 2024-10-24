@@ -47,6 +47,7 @@ class QueryUnderstanding:
         job_history_top_k: int = 10,
         reviews_top_k: int = 10,
         profile_top_k: int = 10,
+        debug: bool = False,
     ) -> Generator[str, None, None]:
         """
         Searches for information relevant to the current conversation.
@@ -94,7 +95,8 @@ class QueryUnderstanding:
                 for result_object in retrieved_data.objects:
                     result_object = str(result_object).replace("\\n", "")
                     result_text += f"\n*   | {result_object}"
-                result_text += f"\n\n*   | {retrieved_data.debug}"
+                if debug:
+                    result_text += f"\n\n*   | {retrieved_data.debug}"
                 context.objects["results"].append(result_text)
                 if not summarize_results:
                     return result_text
