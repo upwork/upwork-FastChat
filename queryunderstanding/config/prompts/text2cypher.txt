@@ -68,6 +68,8 @@
     - Property access over temporal types is not supported.
     - When you want to compare entities to check if they are different (<>), use a property like uid and not the full node. e.g. a.uid <> b.uid instead of a<>b.
     - If you need to do date calculations, today is {today}.
+    - You should always filter for the freelancers and jobs in the context when that makes sense
+    - Avoid queries that might require large chunks of data being retrieved. You can still make n-hop queries when reasonable.
 
     ### Schema
     {schema}
@@ -79,3 +81,6 @@
     ### Freelancer
     Use the freelancer ID to identify the freelancer in the queries
     {freelancers}
+
+    ### Job
+    {job}

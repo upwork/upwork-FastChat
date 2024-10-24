@@ -1,6 +1,9 @@
 from logging import getLogger
 from typing import Generator
 from copy import deepcopy
+import itertools
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
 
 from fastchat.conversation import Conversation
 
@@ -85,10 +88,8 @@ class QueryUnderstanding:
         yield "Using the following retrievers:"
         for retriever in retrievers:
             yield f"- {retriever.RETRIEVER_NAME}"
-        import asyncio
-        import concurrent.futures
 
-        async def fetch_data(retriever, context, person_id):
+        def fetch_data(retriever, context, person_id):
             target_freelancers = [
                 freelancer
                 for freelancer in context.objects["freelancers"]
@@ -97,9 +98,7 @@ class QueryUnderstanding:
             retrieve_context = deepcopy(context)
             retrieve_context.objects["freelancers"] = target_freelancers
             try:
-                retrieved_data: Results = await asyncio.to_thread(
-                    retriever.retrieve, retrieve_context
-                )
+                retrieved_data: Results = retriever.retrieve(retrieve_context)
                 result_text = f"\n\n\nRetrieved data from {retriever.RETRIEVER_NAME}:\n"
                 for result_object in retrieved_data.objects:
                     result_object = str(result_object).replace("\\n", "")
@@ -113,24 +112,27 @@ class QueryUnderstanding:
                 logger.error(f"Error retrieving data from {retriever}: {e}")
                 return None
 
-        async def run_tasks(retrievers, context):
-            tasks = [
-                fetch_data(retriever, context, person_id)
-                for retriever, person_id in zip(
-                    retrievers, context.objects["target_person_ids"]
-                )
-            ]
-            return await asyncio.gather(*tasks)
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            results = loop.run_until_complete(run_tasks(retrievers, context))
-            loop.close()
-
-        for result in results:
-            if result:
-                yield result
+        retrieval_tasks = itertools.product(
+            retrievers, context.objects["target_person_ids"]
+        )
+        with ThreadPoolExecutor() as executor:
+            future_to_results = {
+                executor.submit(
+                    fetch_data, retriever, context, person_id
+                ): retriever.RETRIEVER_NAME
+                for retriever, person_id in retrieval_tasks
+            }
+            for future in tqdm(
+                as_completed(future_to_results),
+                total=len(future_to_results),
+            ):
+                retriever_name = future_to_results[future]
+                try:
+                    results = future.result()
+                except Exception as exc:
+                    logger.error(f"{retriever_name} generated an exception: {exc}")
+                if results:
+                    yield results
         if summarize_results:
             summary = self.summarizer.summarize(context)
             yield summary
