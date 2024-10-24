@@ -602,6 +602,7 @@ def generate_turn(
     reviews_top_k=5,
     job_history_top_k=10,
     profile_top_k=10,
+    debug=False,
 ):
     start_tstamp = time.time()
     conv, model_name = state.conv, state.model_name
@@ -624,6 +625,7 @@ def generate_turn(
             reviews_top_k=reviews_top_k,
             job_history_top_k=job_history_top_k,
             profile_top_k=profile_top_k,
+            debug=debug,
         ):
             current_message = conv.messages[-1][1]
             current_message = current_message.replace(html_code, "")
@@ -812,6 +814,7 @@ def bot_response(
     job_history_top_k,
     help_center_top_k,
     profile_top_k,
+    debug,
     request: gr.Request,
     apply_rate_limit=True,
     use_recommended_config=False,
@@ -860,6 +863,7 @@ def bot_response(
             job_history_top_k=job_history_top_k,
             help_center_top_k=help_center_top_k,
             profile_top_k=profile_top_k,
+            debug=debug,
         )
 
     model_api_dict = api_endpoint_info.get(state.model_name, None)
@@ -1245,6 +1249,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
         )
         generate_thoughts = gr.Checkbox(value=True, label="Generate thoughts")
         summarize_results = gr.Checkbox(value=False, label="Summarize results")
+        debug = gr.Checkbox(value=False, label="Debug Mode")
         text2cypher_prompt = gr.Textbox(
             label="Text2Cypher Prompt",
             lines=20,
@@ -1317,6 +1322,7 @@ def build_single_model_ui(demo, models, add_promotion_links=False, add_load_demo
             job_history_k,
             help_center_k,
             profile_k,
+            debug,
         ],
         [state, chatbot] + btn_list,
     )
@@ -1408,6 +1414,7 @@ function copy(share_str) {
             job_history_k,
             help_center_k,
             profile_k,
+            debug,
         ],
         [state, chatbot] + btn_list,
     )
